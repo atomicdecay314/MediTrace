@@ -155,6 +155,24 @@
     #btn-send:hover:not(:disabled) { background: #2563eb; }
     #btn-send:disabled { background: #93c5fd; cursor: not-allowed; }
 
+    #btn-mic {
+      background: #f1f5f9; border: 1px solid #d1d5db;
+      border-radius: 8px; padding: .5rem .65rem;
+      font-size: 1.05rem; cursor: pointer; align-self: flex-end;
+      transition: background .15s, border-color .15s;
+      line-height: 1;
+    }
+    #btn-mic:hover:not(:disabled) { background: #e2e8f0; border-color: #94a3b8; }
+    #btn-mic:disabled { opacity: .4; cursor: not-allowed; }
+    #btn-mic.recording {
+      background: #fee2e2; border-color: #fca5a5; color: #dc2626;
+      animation: pulse-mic .8s ease infinite;
+    }
+    @keyframes pulse-mic {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, .35); }
+      50%       { box-shadow: 0 0 0 5px rgba(239, 68, 68, 0); }
+    }
+
     #btn-end-interview {
       background: none; border: 1px solid #e5e7eb;
       color: #6b7280; border-radius: 6px; padding: .35rem .75rem;
@@ -231,6 +249,7 @@
       <button id="btn-generate-timeline">Generate Timeline (Phase 4)</button>
       <div id="chat-input-row">
         <textarea id="chat-input" rows="2" placeholder="Type your response…"></textarea>
+        <button id="btn-mic" title="Click to record">🎤</button>
         <button id="btn-send">Send</button>
       </div>
       <button id="btn-end-interview">End interview early</button>
@@ -264,11 +283,14 @@ const TOPIC_LABELS = {
 // ── State ──────────────────────────────────────────────────
 let sessionId = null;
 let interviewDone = false;
+let mediaRecorder = null;
+let audioChunks = [];
 
 // ── DOM refs ───────────────────────────────────────────────
 const chatMessages   = document.getElementById('chat-messages');
 const chatInput      = document.getElementById('chat-input');
 const btnSend        = document.getElementById('btn-send');
+const btnMic         = document.getElementById('btn-mic');
 const btnEnd         = document.getElementById('btn-end-interview');
 const btnNew         = document.getElementById('btn-new-session');
 const sessionLabel   = document.getElementById('session-label');
@@ -339,19 +361,123 @@ function showTyping() {
 
 // ── Disable / enable input ─────────────────────────────────
 function setInputEnabled(enabled) {
-  chatInput.disabled    = !enabled;
-  btnSend.disabled      = !enabled;
-  btnEnd.disabled       = !enabled;
+  chatInput.disabled = !enabled;
+  btnSend.disabled   = !enabled;
+  btnEnd.disabled    = !enabled;
+  btnMic.disabled    = !enabled;
 }
 
 // ── Interview complete state ───────────────────────────────
 function markInterviewComplete() {
   interviewDone = true;
   setInputEnabled(false);
+  btnMic.disabled = true;
   completeBanner.style.display = 'block';
   btnGenTimeline.style.display = 'block';
   appendSystem('— Interview complete —');
 }
+
+// ── Voice recording ────────────────────────────────────────
+async function startRecording() {
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (err) {
+    showToast('Microphone access denied — use the text input instead.', true);
+    return;
+  }
+
+  audioChunks = [];
+  mediaRecorder = new MediaRecorder(stream);
+
+  mediaRecorder.ondataavailable = (e) => {
+    if (e.data.size > 0) audioChunks.push(e.data);
+  };
+
+  mediaRecorder.onstop = () => {
+    stream.getTracks().forEach(t => t.stop());
+    const mimeType = mediaRecorder.mimeType || 'audio/webm';
+    const blob = new Blob(audioChunks, { type: mimeType });
+    sendVoiceTurn(blob, mimeType);
+  };
+
+  mediaRecorder.start();
+  btnMic.classList.add('recording');
+  btnMic.textContent = '⏹';
+  btnMic.title = 'Click to stop recording';
+}
+
+function stopRecording() {
+  if (mediaRecorder && mediaRecorder.state === 'recording') {
+    mediaRecorder.stop();
+  }
+  btnMic.classList.remove('recording');
+  btnMic.textContent = '🎤';
+  btnMic.title = 'Click to record';
+}
+
+async function sendVoiceTurn(blob, mimeType) {
+  if (interviewDone || !sessionId) return;
+
+  setInputEnabled(false);
+
+  // Show transcribing indicator
+  const transcribingEl = document.createElement('div');
+  transcribingEl.className = 'msg msg-system';
+  transcribingEl.textContent = 'Transcribing…';
+  chatMessages.appendChild(transcribingEl);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+
+  const formData = new FormData();
+  formData.append('audio', blob, 'recording.webm');
+
+  try {
+    const res = await fetch(`/api/sessions/${sessionId}/interview/voice-turn`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    transcribingEl.remove();
+
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => ({ detail: 'Unknown error' }));
+      showToast(
+        res.status === 422
+          ? "Couldn't hear that — try again or type your answer."
+          : (errBody.detail ?? `HTTP ${res.status}`),
+        true
+      );
+      return;
+    }
+
+    const data = await res.json();
+    appendMessage('user', data.transcript);
+    appendMessage('assistant', data.reply);
+    renderCoverage(data.coverage);
+
+    if (data.interview_complete) {
+      await callComplete().catch(() => {});
+      markInterviewComplete();
+    }
+  } catch (err) {
+    transcribingEl.remove();
+    showToast("Couldn't hear that — try again or type your answer.", true);
+  } finally {
+    if (!interviewDone) {
+      setInputEnabled(true);
+      chatInput.focus();
+    }
+  }
+}
+
+btnMic.addEventListener('click', () => {
+  if (interviewDone || !sessionId) return;
+  if (mediaRecorder && mediaRecorder.state === 'recording') {
+    stopRecording();
+  } else {
+    startRecording();
+  }
+});
 
 // ── API calls ──────────────────────────────────────────────
 async function createSession() {

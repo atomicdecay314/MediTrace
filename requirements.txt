@@ -6,8 +6,7 @@ pydantic==2.10.3
 pydantic-settings==2.6.1
 python-dotenv==1.0.1
 google-genai==2.8.0
-# PHASE 2 remaining: groq (for STT/Whisper)
-# groq==0.13.0
-# PHASE 3: python-multipart, pypdf
-# python-multipart==0.0.12
+groq==1.4.0
+python-multipart==0.0.32
+# PHASE 3: pypdf
 # pypdf==5.1.0
