@@ -30,6 +30,7 @@ class SessionOut(BaseModel):
     status: str
     patient_label: str | None
     interview_state: dict
+    transcript: list
     counts: dict  # {sources: int, events: int, conflicts: int}
 
     model_config = {"from_attributes": True}

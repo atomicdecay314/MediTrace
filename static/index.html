@@ -450,24 +450,93 @@ btnEnd.addEventListener('click', async () => {
   }
 });
 
+// ── URL param helpers ──────────────────────────────────────
+function getSessionParam() {
+  return new URLSearchParams(location.search).get('session');
+}
+
+function setSessionParam(id) {
+  history.replaceState(null, '', '?session=' + id);
+}
+
 // ── New session button ─────────────────────────────────────
-btnNew.addEventListener('click', () => {
-  if (!confirm('Start a new session? The current session will remain in the database but this window will reset.')) return;
-  location.reload();
+btnNew.addEventListener('click', async () => {
+  if (!confirm('Start a new session? The current session stays in the database.')) return;
+  btnNew.disabled = true;
+  try {
+    const session = await createSession();
+    // Navigate to the new session URL — page reload gives a clean state
+    location.href = '?session=' + session.id;
+  } catch (err) {
+    showToast(err.message, true);
+    btnNew.disabled = false;
+  }
 });
 
-// ── Boot: create session + fire opening turn ───────────────
+// ── Rehydrate an existing session ─────────────────────────
+async function rehydrate(id) {
+  const res = await fetch(`/api/sessions/${id}`);
+  if (!res.ok) throw new Error(`Session ${id} not found (HTTP ${res.status})`);
+  const session = await res.json();
+
+  sessionId = session.id;
+  sessionLabel.textContent = `Session: ${session.id.slice(0, 8)}…`;
+  sessionLabel.title = session.id;
+
+  // Restore coverage pills
+  const coverage = session.interview_state?.coverage_map;
+  if (coverage && Object.keys(coverage).length) renderCoverage(coverage);
+  else initCoverageStrip();
+
+  // Replay transcript into chat
+  for (const turn of (session.transcript || [])) {
+    appendMessage(turn.role, turn.content);
+  }
+
+  // Restore complete state if applicable
+  const doneStatuses = ['interview_complete', 'processing', 'timeline_generated'];
+  if (doneStatuses.includes(session.status)) {
+    markInterviewComplete();
+    return;
+  }
+
+  // If transcript is empty this is a fresh session — fire opening turn
+  if (!session.transcript || session.transcript.length === 0) {
+    await doTurn('');
+  } else {
+    setInputEnabled(true);
+    chatInput.focus();
+  }
+}
+
+// ── Boot ───────────────────────────────────────────────────
 async function boot() {
   initCoverageStrip();
   setInputEnabled(false);
 
+  const existingId = getSessionParam();
+
+  if (existingId) {
+    try {
+      await rehydrate(existingId);
+    } catch (err) {
+      // Bad/expired ID — fall through and create a fresh session
+      appendSystem('Could not load session — starting a new one.');
+      showToast(err.message, true);
+      await startFreshSession();
+    }
+  } else {
+    await startFreshSession();
+  }
+}
+
+async function startFreshSession() {
   try {
     const session = await createSession();
     sessionId = session.id;
     sessionLabel.textContent = `Session: ${session.id.slice(0, 8)}…`;
     sessionLabel.title = session.id;
-
-    // Fire an empty first turn so the agent introduces itself
+    setSessionParam(session.id);
     await doTurn('');
   } catch (err) {
     appendSystem('Failed to start session. Check the server and refresh.');

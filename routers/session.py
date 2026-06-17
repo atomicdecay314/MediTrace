@@ -26,6 +26,7 @@ def _build_out(session: Session, db: DBSession) -> SessionOut:
         status=session.status,
         patient_label=session.patient_label,
         interview_state=session.interview_state or {},
+        transcript=session.transcript or [],
         counts={"sources": source_count, "events": event_count, "conflicts": conflict_count},
     )
 
