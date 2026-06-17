@@ -92,24 +92,37 @@ def _flatten_prescription(data: dict) -> str:
         lines.append(f"PATIENT: {data['patient_name']}")
     if data.get("patient_dob"):
         lines.append(f"DOB: {data['patient_dob']}")
+    if data.get("patient_contact"):
+        lines.append(f"PATIENT CONTACT: {data['patient_contact']}")
     if data.get("prescriber_name"):
         lines.append(f"PRESCRIBER: {data['prescriber_name']}")
     if data.get("prescriber_clinic"):
         lines.append(f"CLINIC: {data['prescriber_clinic']}")
+    if data.get("prescriber_contact"):
+        lines.append(f"PRESCRIBER CONTACT: {data['prescriber_contact']}")
     meds = data.get("medications") or []
     if meds:
         lines.append("\nMEDICATIONS:")
         for i, m in enumerate(meds, 1):
-            name = m.get("drug_name") or "(unreadable)"
+            # Display normalized name if confident; fall back to raw
+            display = m.get("normalized_guess") or m.get("raw_text") or "(unreadable)"
             strength = f" {m['strength']}" if m.get("strength") else ""
-            form = f" ({m['form']})" if m.get("form") else ""
-            lines.append(f"  {i}. {name}{strength}{form}")
-            if m.get("dosage_instructions"):
-                lines.append(f"     Sig: {m['dosage_instructions']}")
-            if m.get("quantity"):
-                lines.append(f"     Qty: {m['quantity']}")
-            if m.get("refills") is not None:
-                lines.append(f"     Refills: {m['refills']}")
+            lines.append(f"  {i}. {display}{strength}")
+            # Dose / frequency / duration on one detail line
+            parts: list[str] = []
+            if m.get("dose"):
+                parts.append(f"dose: {m['dose']}")
+            if m.get("frequency"):
+                parts.append(f"freq: {m['frequency']}")
+            if m.get("duration"):
+                parts.append(f"for: {m['duration']}")
+            if parts:
+                lines.append(f"     {' | '.join(parts)}")
+            # Always show raw when it differs from the normalized form
+            raw = m.get("raw_text")
+            norm = m.get("normalized_guess")
+            if raw and raw != norm:
+                lines.append(f"     [raw: {raw}]")
             leg = m.get("legibility", "clear")
             if leg != "clear":
                 lines.append(f"     [legibility: {leg}]")
