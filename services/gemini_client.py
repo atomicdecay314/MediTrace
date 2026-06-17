@@ -62,8 +62,53 @@ class GeminiClient:
                     f"LLM output could not be parsed as JSON after repair: {exc}"
                 ) from exc
 
+    def vision_json_completion(
+        self,
+        system_prompt: str,
+        images: list[bytes],
+        mime_type: str,
+        user_text: str | None = None,
+    ) -> dict:
+        client = self._get_client()
+        parts: list = [
+            types.Part.from_bytes(data=img, mime_type=mime_type) for img in images
+        ]
+        if user_text:
+            parts.append(types.Part.from_text(text=user_text))
+
+        try:
+            response = client.models.generate_content(
+                model=GEMINI_MODEL,
+                contents=parts,
+                config=types.GenerateContentConfig(
+                    system_instruction=system_prompt,
+                    response_mime_type="application/json",
+                ),
+            )
+            raw = response.text or ""
+        except Exception as exc:
+            logger.error("Vision LLM call failed: %s", exc)
+            raise GeminiParseError(f"Vision LLM call failed: {exc}") from exc
+
+        try:
+            return json.loads(raw)
+        except json.JSONDecodeError:
+            logger.warning("Vision LLM returned invalid JSON; attempting repair")
+            try:
+                repaired = self._call(
+                    "You are a JSON repair assistant. "
+                    "Return ONLY valid JSON — no markdown fences, no explanation.",
+                    f"Fix this invalid JSON:\n{raw}",
+                    json_mode=True,
+                )
+                return json.loads(repaired)
+            except json.JSONDecodeError as exc:
+                raise GeminiParseError(
+                    f"Vision LLM output could not be parsed after repair: {exc}"
+                ) from exc
+
     def text_completion(self, system_prompt: str, user_payload: str) -> str:
-        # PHASE 3+: used for OCR prompts and fusion
+        # PHASE 5: used for fusion
         try:
             return self._call(system_prompt, user_payload, json_mode=False)
         except Exception as exc:

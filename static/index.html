@@ -199,6 +199,104 @@
       /* PHASE 4: wire this up */
     }
 
+    /* ── Documents panel ── */
+    #doc-upload-area {
+      padding: .6rem .75rem; border-bottom: 1px solid #e5e7eb; flex-shrink: 0;
+    }
+    #dropzone {
+      border: 2px dashed #d1d5db; border-radius: 8px;
+      padding: .55rem .5rem; text-align: center; cursor: pointer;
+      font-size: .78rem; color: #6b7280;
+      transition: border-color .2s, background .2s;
+      line-height: 1.6;
+    }
+    #dropzone.over { border-color: #3b82f6; background: #eff6ff; color: #1d4ed8; }
+    .file-label { color: #3b82f6; cursor: pointer; text-decoration: underline; }
+
+    #doc-list { flex: 1; overflow-y: auto; padding: .5rem; }
+
+    .doc-item {
+      display: flex; align-items: center; gap: .45rem;
+      padding: .45rem .55rem; border-radius: 6px; cursor: pointer;
+      border: 1px solid #e5e7eb; margin-bottom: .35rem;
+      transition: background .15s; background: #fff;
+    }
+    .doc-item:hover { background: #f8fafc; }
+    .doc-name {
+      flex: 1; font-size: .78rem; overflow: hidden;
+      text-overflow: ellipsis; white-space: nowrap; color: #374151;
+    }
+    .doc-kind { font-size: .65rem; color: #94a3b8; flex-shrink: 0; }
+
+    .status-chip {
+      font-size: .68rem; font-weight: 700;
+      width: 20px; height: 20px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .chip-pending   { background: #f1f5f9; color: #64748b; animation: spin-chip 1.5s linear infinite; }
+    .chip-done      { background: #dcfce7; color: #166534; }
+    .chip-unreadable{ background: #fef9c3; color: #854d0e; }
+    .chip-error     { background: #fee2e2; color: #991b1b; }
+    @keyframes spin-chip { to { transform: rotate(360deg); } }
+
+    .doc-reupload {
+      background: none; border: none; color: #94a3b8;
+      cursor: pointer; font-size: .85rem; padding: 0 .15rem; flex-shrink: 0;
+    }
+    .doc-reupload:hover { color: #3b82f6; }
+    .doc-empty {
+      text-align: center; color: #9ca3af; font-size: .8rem; padding: 1.5rem .5rem;
+    }
+
+    /* ── Audit modal ── */
+    .modal {
+      position: fixed; inset: 0; z-index: 50;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .modal.hidden { display: none; }
+    .modal-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.4); }
+    .modal-box {
+      position: relative; background: #fff; border-radius: 12px;
+      width: min(90vw, 680px); max-height: 82vh;
+      display: flex; flex-direction: column; overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0,0,0,.25);
+    }
+    .modal-header {
+      display: flex; align-items: center; gap: .5rem;
+      padding: .75rem 1rem; border-bottom: 1px solid #e5e7eb; flex-shrink: 0;
+    }
+    #audit-title {
+      flex: 1; font-size: .92rem; font-weight: 600;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    #audit-close {
+      background: none; border: none; font-size: 1.3rem;
+      cursor: pointer; color: #6b7280; line-height: 1; padding: 0 .2rem;
+    }
+    .modal-body { flex: 1; overflow-y: auto; padding: 1rem; }
+    .audit-status-row { margin-bottom: .6rem; font-size: .82rem; color: #374151; }
+    .audit-warnings {
+      background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px;
+      padding: .5rem .75rem; margin-bottom: .7rem; font-size: .78rem; color: #92400e;
+    }
+    .warn-item + .warn-item { margin-top: .2rem; }
+    .audit-section-title {
+      font-size: .7rem; font-weight: 700; color: #6b7280;
+      text-transform: uppercase; letter-spacing: .07em; margin-bottom: .3rem;
+    }
+    .audit-text {
+      background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px;
+      padding: .65rem .75rem; font-size: .76rem; font-family: monospace;
+      white-space: pre-wrap; word-break: break-word;
+      max-height: 280px; overflow-y: auto; margin-bottom: .8rem;
+    }
+    .audit-meta {
+      background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px;
+      padding: .65rem .75rem; font-size: .72rem; font-family: monospace;
+      white-space: pre-wrap; max-height: 180px; overflow-y: auto;
+    }
+
     /* ── Toast ── */
     #toast {
       position: fixed; bottom: 1.25rem; left: 50%;
@@ -222,11 +320,17 @@
 
 <div id="panels">
   <!-- LEFT: Documents -->
-  <div class="panel">
+  <div class="panel" id="panel-docs">
     <div class="panel-header">Documents</div>
-    <div class="panel-body">
-      <!-- PHASE 3: document upload + OCR status list -->
-      <div class="placeholder">Documents will appear here.<br>Complete the interview first.</div>
+    <div id="doc-upload-area">
+      <div id="dropzone">
+        <div>📎 Drop PDF or image here</div>
+        <div>or <label for="file-input" class="file-label">browse files</label></div>
+        <input type="file" id="file-input" accept=".pdf,image/*" multiple hidden>
+      </div>
+    </div>
+    <div id="doc-list">
+      <div class="doc-empty">No documents yet.</div>
     </div>
   </div>
 
@@ -267,6 +371,18 @@
 </div>
 
 <div id="toast"></div>
+
+<!-- Audit modal -->
+<div id="audit-modal" class="modal hidden">
+  <div class="modal-backdrop" id="audit-backdrop"></div>
+  <div class="modal-box">
+    <div class="modal-header">
+      <span id="audit-title"></span>
+      <button id="audit-close">×</button>
+    </div>
+    <div class="modal-body" id="audit-body"></div>
+  </div>
+</div>
 
 <script>
 // ── Constants ──────────────────────────────────────────────
@@ -614,6 +730,9 @@ async function rehydrate(id) {
   if (coverage && Object.keys(coverage).length) renderCoverage(coverage);
   else initCoverageStrip();
 
+  // Restore docs
+  refreshDocList();
+
   // Replay transcript into chat
   for (const turn of (session.transcript || [])) {
     appendMessage(turn.role, turn.content);
@@ -663,6 +782,7 @@ async function startFreshSession() {
     sessionLabel.textContent = `Session: ${session.id.slice(0, 8)}…`;
     sessionLabel.title = session.id;
     setSessionParam(session.id);
+    refreshDocList();
     await doTurn('');
   } catch (err) {
     appendSystem('Failed to start session. Check the server and refresh.');
@@ -670,6 +790,194 @@ async function startFreshSession() {
     sessionLabel.textContent = 'Error';
   }
 }
+
+// ── Document panel ─────────────────────────────────────────
+const dropzone  = document.getElementById('dropzone');
+const fileInput = document.getElementById('file-input');
+const docList   = document.getElementById('doc-list');
+const auditModal   = document.getElementById('audit-modal');
+const auditBackdrop = document.getElementById('audit-backdrop');
+const auditClose   = document.getElementById('audit-close');
+const auditTitle   = document.getElementById('audit-title');
+const auditBody    = document.getElementById('audit-body');
+
+let pollTimer = null;
+
+// Status chip factory
+function makeChip(status) {
+  const chip = document.createElement('span');
+  chip.className = `status-chip chip-${status}`;
+  chip.title = status;
+  chip.textContent = { pending: '⏳', done: '✓', unreadable: '⚠', error: '✗' }[status] ?? status;
+  return chip;
+}
+
+// Render the document list
+function renderDocList(docs) {
+  docList.innerHTML = '';
+  if (!docs.length) {
+    docList.innerHTML = '<div class="doc-empty">No documents yet.</div>';
+    return;
+  }
+  for (const doc of docs) {
+    const item = document.createElement('div');
+    item.className = 'doc-item';
+    item.dataset.status = doc.ocr_status;
+
+    item.appendChild(makeChip(doc.ocr_status));
+
+    const name = document.createElement('span');
+    name.className = 'doc-name';
+    name.textContent = doc.filename || doc.kind;
+    name.title = doc.filename || '';
+    item.appendChild(name);
+
+    const kind = document.createElement('span');
+    kind.className = 'doc-kind';
+    kind.textContent = doc.kind === 'pdf_typed' ? 'PDF' : 'IMG';
+    item.appendChild(kind);
+
+    if (doc.ocr_status === 'error' || doc.ocr_status === 'unreadable') {
+      const reup = document.createElement('button');
+      reup.className = 'doc-reupload';
+      reup.title = 'Re-upload';
+      reup.textContent = '↑';
+      reup.onclick = (e) => { e.stopPropagation(); fileInput.click(); };
+      item.appendChild(reup);
+    }
+
+    item.addEventListener('click', () => openAudit(doc.source_id));
+    docList.appendChild(item);
+  }
+}
+
+// Fetch doc list and update UI; start polling if any pending
+async function refreshDocList() {
+  if (!sessionId) return;
+  try {
+    const res = await fetch(`/api/sessions/${sessionId}/documents`);
+    if (!res.ok) return;
+    const docs = await res.json();
+    renderDocList(docs);
+    if (docs.some(d => d.ocr_status === 'pending')) startPolling();
+  } catch (_) { /* silent */ }
+}
+
+function startPolling() {
+  if (pollTimer) return;
+  pollTimer = setInterval(async () => {
+    if (!sessionId) return;
+    const res = await fetch(`/api/sessions/${sessionId}/documents`).catch(() => null);
+    if (!res?.ok) return;
+    const docs = await res.json();
+    renderDocList(docs);
+    if (!docs.some(d => d.ocr_status === 'pending')) {
+      clearInterval(pollTimer);
+      pollTimer = null;
+    }
+  }, 2000);
+}
+
+// Upload a single file
+async function handleUpload(file) {
+  if (!sessionId) { showToast('Start a session first.', true); return; }
+  const form = new FormData();
+  form.append('file', file);
+  try {
+    const res = await fetch(`/api/sessions/${sessionId}/documents`, {
+      method: 'POST', body: form,
+    });
+    if (!res.ok) {
+      const e = await res.json().catch(() => ({}));
+      throw new Error(e.detail || `HTTP ${res.status}`);
+    }
+    await refreshDocList();
+    startPolling();
+  } catch (err) {
+    showToast(`Upload failed: ${err.message}`, true);
+  }
+}
+
+// Audit modal
+async function openAudit(sourceId) {
+  try {
+    const res = await fetch(`/api/sessions/${sessionId}/documents/${sourceId}`);
+    if (!res.ok) return;
+    const data = await res.json();
+
+    auditTitle.textContent = data.filename || data.kind;
+    auditBody.innerHTML = '';
+
+    // Status row
+    const statusRow = document.createElement('div');
+    statusRow.className = 'audit-status-row';
+    statusRow.innerHTML = `Status: <strong>${data.ocr_status}</strong>`;
+    auditBody.appendChild(statusRow);
+
+    // Warnings
+    const warnings = data.extraction_meta?.warnings || [];
+    if (warnings.length) {
+      const warnBox = document.createElement('div');
+      warnBox.className = 'audit-warnings';
+      warnBox.innerHTML = warnings.map(w => `<div class="warn-item">⚠ ${w}</div>`).join('');
+      auditBody.appendChild(warnBox);
+    }
+
+    // Extracted text
+    if (data.extracted_text) {
+      const t = document.createElement('div');
+      t.className = 'audit-section-title';
+      t.textContent = 'Extracted Text';
+      auditBody.appendChild(t);
+      const pre = document.createElement('pre');
+      pre.className = 'audit-text';
+      pre.textContent = data.extracted_text;
+      auditBody.appendChild(pre);
+    }
+
+    // Structured meta (filtered — hide model/page_count/warnings already shown)
+    const metaKeys = Object.keys(data.extraction_meta).filter(
+      k => !['warnings', 'model', 'page_count'].includes(k)
+    );
+    if (metaKeys.length) {
+      const mt = document.createElement('div');
+      mt.className = 'audit-section-title';
+      mt.textContent = 'Structured Fields';
+      auditBody.appendChild(mt);
+      const filtered = Object.fromEntries(metaKeys.map(k => [k, data.extraction_meta[k]]));
+      const pre = document.createElement('pre');
+      pre.className = 'audit-meta';
+      pre.textContent = JSON.stringify(filtered, null, 2);
+      auditBody.appendChild(pre);
+    }
+
+    auditModal.classList.remove('hidden');
+  } catch (_) { /* silent */ }
+}
+
+function closeAudit() { auditModal.classList.add('hidden'); }
+auditClose.addEventListener('click', closeAudit);
+auditBackdrop.addEventListener('click', closeAudit);
+
+// Drag-and-drop
+dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('over'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('over'));
+dropzone.addEventListener('drop', async (e) => {
+  e.preventDefault();
+  dropzone.classList.remove('over');
+  for (const f of Array.from(e.dataTransfer.files)) await handleUpload(f);
+});
+
+// File picker
+fileInput.addEventListener('change', async (e) => {
+  for (const f of Array.from(e.target.files)) await handleUpload(f);
+  e.target.value = '';
+});
+
+// Clicking anywhere on the dropzone that isn't the label triggers file picker
+dropzone.addEventListener('click', (e) => {
+  if (e.target.tagName !== 'LABEL') fileInput.click();
+});
 
 boot();
 </script>

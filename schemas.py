@@ -5,8 +5,7 @@ import warnings
 from pydantic import BaseModel, Field, field_validator
 
 # PHASE 2 (complete): InterviewTurnIn, InterviewTurnOut
-# PHASE 2 remaining: AudioUploadOut, TranscriptOut
-# PHASE 3: RawSourceOut, DocumentUploadOut, OcrStatusOut
+# PHASE 3 (complete): DocumentUploadOut, DocumentOut, DocumentDetailOut
 # PHASE 4: EventOut, ConflictOut, TimelineOut
 # PHASE 5: FusionResultOut
 
@@ -34,6 +33,29 @@ class SessionOut(BaseModel):
     counts: dict  # {sources: int, events: int, conflicts: int}
 
     model_config = {"from_attributes": True}
+
+
+class DocumentUploadOut(BaseModel):
+    source_id: str
+    kind: str
+    ocr_status: str
+
+
+class DocumentOut(BaseModel):
+    source_id: str
+    filename: str | None
+    kind: str
+    ocr_status: str
+    warnings: list[str] = Field(default_factory=list)
+
+
+class DocumentDetailOut(BaseModel):
+    source_id: str
+    filename: str | None
+    kind: str
+    ocr_status: str
+    extracted_text: str | None
+    extraction_meta: dict = Field(default_factory=dict)
 
 
 class InterviewTurnIn(BaseModel):
