@@ -47,14 +47,41 @@ def _expand_year(y: int) -> int:
     return 2000 + y if y < 50 else 1900 + y
 
 
-_TIME_RE = re.compile(
-    r"\s+\d{1,2}:\d{2}(?::\d{2})?\s*(?:[AaPp]\.?[Mm]\.?)?\s*$"
-)
+_ISO_DT_RE = re.compile(r'^(\d{4}-\d{2}-\d{2})T\d{2}:\d{2}')
 
 
 def _strip_time_suffix(text: str) -> str:
-    """Remove trailing clock time so '14 Jun 26 12:31 PM' → '14 Jun 26'."""
-    return _TIME_RE.sub("", text).strip()
+    """
+    Remove trailing clock time from a date string, regardless of format.
+
+    Strategy: find the first whitespace-separated token that looks like HH:MM
+    (with optional seconds) and drop it plus everything after it.
+    This avoids any AM/PM character matching, so encoding artifacts in 'PM'
+    never interfere.
+
+    Examples:
+      '14 Jun 26 12:31 PM'   → '14 Jun 26'
+      '16 Jun 26 05:03 PM'   → '16 Jun 26'   (zero-padded hour)
+      '16 Jun 26 5:03 PM'    → '16 Jun 26'   (non-padded hour)
+      '16 Jun 26 05:03:22 PM'→ '16 Jun 26'   (with seconds)
+      '2021-07-13T09:00:00'  → '2021-07-13'  (ISO T-separator)
+      '13/7/2021'            → '13/7/2021'   (no time — unchanged)
+    """
+    t = text.strip()
+
+    # ISO datetime: "2021-07-13T09:00:00[...]"
+    m = _ISO_DT_RE.match(t)
+    if m:
+        return m.group(1)
+
+    # Space-separated: drop the first HH:MM[-like] token and everything after.
+    # str.split() handles all whitespace variants including non-breaking spaces.
+    tokens = t.split()
+    for i, tok in enumerate(tokens):
+        if re.match(r'^\d{1,2}:\d{2}', tok):
+            return ' '.join(tokens[:i])
+
+    return t
 
 
 def _make_exact(year: int, month: int, day: int) -> DateResult | None:

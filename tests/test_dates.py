@@ -12,15 +12,28 @@ REF = date(2025, 6, 17)
 # ── Date + time strings (time discarded, date treated as exact) ──────────────
 
 def test_datetime_with_ampm_1():
-    # "14 Jun 26 12:31 PM" → 2026-06-14, exact, high confidence (no "~")
+    # "14 Jun 26 12:31 PM" — two-digit hour, should parse cleanly
     r = normalize("14 Jun 26 12:31 PM", REF)
     assert r["date_start"] == date(2026, 6, 14)
     assert r["date_precision"] == "exact"
     assert r["date_confidence"] >= 0.9
 
-def test_datetime_with_ampm_2():
-    # "16 Jun 26 5:03 PM" → 2026-06-16, exact, high confidence (no "~")
+def test_datetime_with_ampm_2_unpadded():
+    # non-padded single-digit hour
     r = normalize("16 Jun 26 5:03 PM", REF)
+    assert r["date_start"] == date(2026, 6, 16)
+    assert r["date_precision"] == "exact"
+    assert r["date_confidence"] >= 0.9
+
+def test_datetime_zero_padded_hour():
+    # THE FAILING CASE: zero-padded single-digit hour "05:03"
+    r = normalize("16 Jun 26 05:03 PM", REF)
+    assert r["date_start"] == date(2026, 6, 16)
+    assert r["date_precision"] == "exact"
+    assert r["date_confidence"] >= 0.9
+
+def test_datetime_zero_padded_with_seconds():
+    r = normalize("16 Jun 26 05:03:22 PM", REF)
     assert r["date_start"] == date(2026, 6, 16)
     assert r["date_precision"] == "exact"
     assert r["date_confidence"] >= 0.9
@@ -32,6 +45,11 @@ def test_datetime_24h():
 
 def test_datetime_iso_with_time():
     r = normalize("2021-07-13 09:00:00", REF)
+    assert r["date_start"] == date(2021, 7, 13)
+    assert r["date_precision"] == "exact"
+
+def test_datetime_iso_T_separator():
+    r = normalize("2021-07-13T09:00:00", REF)
     assert r["date_start"] == date(2021, 7, 13)
     assert r["date_precision"] == "exact"
 
