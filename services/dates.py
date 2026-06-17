@@ -47,6 +47,16 @@ def _expand_year(y: int) -> int:
     return 2000 + y if y < 50 else 1900 + y
 
 
+_TIME_RE = re.compile(
+    r"\s+\d{1,2}:\d{2}(?::\d{2})?\s*(?:[AaPp]\.?[Mm]\.?)?\s*$"
+)
+
+
+def _strip_time_suffix(text: str) -> str:
+    """Remove trailing clock time so '14 Jun 26 12:31 PM' → '14 Jun 26'."""
+    return _TIME_RE.sub("", text).strip()
+
+
 def _make_exact(year: int, month: int, day: int) -> DateResult | None:
     try:
         d = date(year, month, day)
@@ -299,7 +309,9 @@ def normalize(
         return unknown()
 
     ref = reference_date or date.today()
-    text = date_raw.strip()
+    text = _strip_time_suffix(date_raw.strip())  # discard clock time before parsing
+    if not text:
+        return unknown()
 
     result = (
         _try_explicit(text)

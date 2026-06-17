@@ -9,6 +9,33 @@ from services.dates import normalize
 REF = date(2025, 6, 17)
 
 
+# ── Date + time strings (time discarded, date treated as exact) ──────────────
+
+def test_datetime_with_ampm_1():
+    # "14 Jun 26 12:31 PM" → 2026-06-14, exact, high confidence (no "~")
+    r = normalize("14 Jun 26 12:31 PM", REF)
+    assert r["date_start"] == date(2026, 6, 14)
+    assert r["date_precision"] == "exact"
+    assert r["date_confidence"] >= 0.9
+
+def test_datetime_with_ampm_2():
+    # "16 Jun 26 5:03 PM" → 2026-06-16, exact, high confidence (no "~")
+    r = normalize("16 Jun 26 5:03 PM", REF)
+    assert r["date_start"] == date(2026, 6, 16)
+    assert r["date_precision"] == "exact"
+    assert r["date_confidence"] >= 0.9
+
+def test_datetime_24h():
+    r = normalize("14 Jun 26 17:30", REF)
+    assert r["date_start"] == date(2026, 6, 14)
+    assert r["date_precision"] == "exact"
+
+def test_datetime_iso_with_time():
+    r = normalize("2021-07-13 09:00:00", REF)
+    assert r["date_start"] == date(2021, 7, 13)
+    assert r["date_precision"] == "exact"
+
+
 # ── Explicit full dates ──────────────────────────────────────────────────────
 
 def test_dmy_slash():
