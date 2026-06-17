@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MediTrace</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #f0f2f5;
+      color: #1a1a2e;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Top bar ── */
+    #topbar {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 0 1.25rem;
+      height: 52px;
+      background: #1a1a2e;
+      color: #fff;
+      flex-shrink: 0;
+    }
+    #topbar h1 { font-size: 1.1rem; letter-spacing: .04em; flex: 1; }
+    #session-label { font-size: .78rem; color: #a0aec0; font-family: monospace; }
+    #btn-new-session {
+      background: #3b82f6; color: #fff; border: none;
+      border-radius: 6px; padding: .4rem .9rem;
+      font-size: .85rem; cursor: pointer; transition: background .15s;
+    }
+    #btn-new-session:hover { background: #2563eb; }
+    #btn-new-session:disabled { background: #64748b; cursor: not-allowed; }
+
+    /* ── Three-panel grid ── */
+    #panels {
+      display: grid;
+      grid-template-columns: 240px 1fr 280px;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .panel {
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid #d1d5db;
+      overflow: hidden;
+      background: #fff;
+    }
+    .panel:last-child { border-right: none; }
+
+    .panel-header {
+      padding: .55rem 1rem;
+      font-size: .68rem; font-weight: 700;
+      letter-spacing: .1em; text-transform: uppercase;
+      background: #f8fafc; border-bottom: 1px solid #e5e7eb;
+      color: #6b7280; flex-shrink: 0;
+    }
+
+    .panel-body {
+      flex: 1; overflow-y: auto; padding: 1rem;
+    }
+
+    .placeholder {
+      display: flex; align-items: center; justify-content: center;
+      height: 100%; color: #9ca3af;
+      font-size: .85rem; text-align: center; line-height: 1.6;
+    }
+
+    /* ── Coverage strip ── */
+    #coverage-strip {
+      display: flex; flex-wrap: wrap; gap: .35rem;
+      padding: .5rem 1rem; border-bottom: 1px solid #e5e7eb;
+      background: #f8fafc; flex-shrink: 0;
+    }
+    .pill {
+      font-size: .65rem; font-weight: 600; letter-spacing: .04em;
+      padding: .18rem .55rem; border-radius: 999px;
+      text-transform: uppercase; transition: background .3s, color .3s;
+    }
+    .pill-uncovered { background: #e5e7eb; color: #6b7280; }
+    .pill-partial    { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+    .pill-covered    { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+
+    /* ── Chat messages ── */
+    #chat-messages {
+      flex: 1; overflow-y: auto;
+      padding: 1rem; display: flex; flex-direction: column; gap: .75rem;
+    }
+
+    .msg {
+      max-width: 80%; padding: .65rem .9rem;
+      border-radius: 14px; font-size: .88rem; line-height: 1.5;
+      word-break: break-word;
+    }
+    .msg-assistant {
+      align-self: flex-start;
+      background: #f1f5f9; color: #1e293b;
+      border-bottom-left-radius: 4px;
+    }
+    .msg-user {
+      align-self: flex-end;
+      background: #3b82f6; color: #fff;
+      border-bottom-right-radius: 4px;
+    }
+    .msg-system {
+      align-self: center; font-size: .75rem;
+      color: #94a3b8; font-style: italic;
+    }
+
+    /* ── Typing indicator ── */
+    .typing-dots {
+      display: flex; gap: .3rem; align-items: center;
+      padding: .65rem .9rem;
+    }
+    .typing-dots span {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: #94a3b8; animation: bounce .9s infinite;
+    }
+    .typing-dots span:nth-child(2) { animation-delay: .15s; }
+    .typing-dots span:nth-child(3) { animation-delay: .3s; }
+    @keyframes bounce {
+      0%, 80%, 100% { transform: translateY(0); }
+      40%            { transform: translateY(-6px); }
+    }
+
+    /* ── Input area ── */
+    #chat-footer {
+      border-top: 1px solid #e5e7eb; padding: .75rem 1rem;
+      display: flex; flex-direction: column; gap: .5rem;
+      flex-shrink: 0; background: #fff;
+    }
+    #chat-input-row { display: flex; gap: .5rem; }
+    #chat-input {
+      flex: 1; resize: none; border: 1px solid #d1d5db;
+      border-radius: 8px; padding: .5rem .75rem;
+      font-size: .88rem; font-family: inherit;
+      line-height: 1.4; max-height: 120px; overflow-y: auto;
+    }
+    #chat-input:focus { outline: none; border-color: #3b82f6; }
+    #chat-input:disabled { background: #f8fafc; }
+
+    #btn-send {
+      background: #3b82f6; color: #fff; border: none;
+      border-radius: 8px; padding: .5rem .9rem;
+      font-size: .85rem; cursor: pointer; align-self: flex-end;
+      transition: background .15s; white-space: nowrap;
+    }
+    #btn-send:hover:not(:disabled) { background: #2563eb; }
+    #btn-send:disabled { background: #93c5fd; cursor: not-allowed; }
+
+    #btn-end-interview {
+      background: none; border: 1px solid #e5e7eb;
+      color: #6b7280; border-radius: 6px; padding: .35rem .75rem;
+      font-size: .78rem; cursor: pointer; align-self: flex-start;
+      transition: border-color .15s, color .15s;
+    }
+    #btn-end-interview:hover:not(:disabled) { border-color: #94a3b8; color: #374151; }
+    #btn-end-interview:disabled { opacity: .4; cursor: not-allowed; }
+
+    /* ── Complete banner ── */
+    #complete-banner {
+      display: none; margin: .5rem 0;
+      background: #f0fdf4; border: 1px solid #bbf7d0;
+      border-radius: 8px; padding: .6rem 1rem;
+      font-size: .82rem; color: #166534; text-align: center;
+    }
+
+    /* ── Generate button placeholder ── */
+    #btn-generate-timeline {
+      display: none; width: 100%;
+      background: #1a1a2e; color: #fff; border: none;
+      border-radius: 8px; padding: .65rem;
+      font-size: .88rem; cursor: not-allowed; opacity: .5;
+      /* PHASE 4: wire this up */
+    }
+
+    /* ── Toast ── */
+    #toast {
+      position: fixed; bottom: 1.25rem; left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: #1e293b; color: #f8fafc;
+      padding: .5rem 1.2rem; border-radius: 8px;
+      font-size: .82rem; transition: transform .25s ease;
+      pointer-events: none; z-index: 100;
+    }
+    #toast.show  { transform: translateX(-50%) translateY(0); }
+    #toast.error { background: #dc2626; }
+  </style>
+</head>
+<body>
+
+<div id="topbar">
+  <h1>MediTrace</h1>
+  <span id="session-label">Starting session…</span>
+  <button id="btn-new-session">New Session</button>
+</div>
+
+<div id="panels">
+  <!-- LEFT: Documents -->
+  <div class="panel">
+    <div class="panel-header">Documents</div>
+    <div class="panel-body">
+      <!-- PHASE 3: document upload + OCR status list -->
+      <div class="placeholder">Documents will appear here.<br>Complete the interview first.</div>
+    </div>
+  </div>
+
+  <!-- CENTER: Interview -->
+  <div class="panel" id="panel-interview">
+    <div class="panel-header">Interview</div>
+
+    <div id="coverage-strip">
+      <!-- filled by JS -->
+    </div>
+
+    <div id="chat-messages">
+      <!-- messages appended here -->
+    </div>
+
+    <div id="chat-footer">
+      <div id="complete-banner">
+        Interview complete — all topics covered.
+      </div>
+      <button id="btn-generate-timeline">Generate Timeline (Phase 4)</button>
+      <div id="chat-input-row">
+        <textarea id="chat-input" rows="2" placeholder="Type your response…"></textarea>
+        <button id="btn-send">Send</button>
+      </div>
+      <button id="btn-end-interview">End interview early</button>
+    </div>
+  </div>
+
+  <!-- RIGHT: Timeline -->
+  <div class="panel">
+    <div class="panel-header">Timeline</div>
+    <div class="panel-body">
+      <!-- PHASE 4: structured medical timeline -->
+      <div class="placeholder">Medical timeline will appear here.<br>Complete the interview first.</div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ── Constants ──────────────────────────────────────────────
+const TOPIC_LABELS = {
+  chief_complaint:    'Chief complaint',
+  chronic_conditions: 'Chronic',
+  medications:        'Medications',
+  surgeries:          'Surgeries',
+  hospitalizations:   'Hospitalizations',
+  allergies:          'Allergies',
+  family_history:     'Family history',
+};
+
+// ── State ──────────────────────────────────────────────────
+let sessionId = null;
+let interviewDone = false;
+
+// ── DOM refs ───────────────────────────────────────────────
+const chatMessages   = document.getElementById('chat-messages');
+const chatInput      = document.getElementById('chat-input');
+const btnSend        = document.getElementById('btn-send');
+const btnEnd         = document.getElementById('btn-end-interview');
+const btnNew         = document.getElementById('btn-new-session');
+const sessionLabel   = document.getElementById('session-label');
+const coverageStrip  = document.getElementById('coverage-strip');
+const completeBanner = document.getElementById('complete-banner');
+const btnGenTimeline = document.getElementById('btn-generate-timeline');
+const toast          = document.getElementById('toast');
+
+// ── Toast ──────────────────────────────────────────────────
+let toastTimer;
+function showToast(msg, isError = false) {
+  clearTimeout(toastTimer);
+  toast.textContent = msg;
+  toast.className = isError ? 'show error' : 'show';
+  toastTimer = setTimeout(() => { toast.className = ''; }, 3500);
+}
+
+// ── Coverage strip ─────────────────────────────────────────
+function renderCoverage(coverageMap) {
+  coverageStrip.innerHTML = '';
+  for (const [topic, status] of Object.entries(coverageMap)) {
+    const pill = document.createElement('span');
+    pill.className = `pill pill-${status}`;
+    pill.title = `${TOPIC_LABELS[topic] ?? topic}: ${status}`;
+    pill.textContent = TOPIC_LABELS[topic] ?? topic;
+    coverageStrip.appendChild(pill);
+  }
+}
+
+function initCoverageStrip() {
+  const empty = {};
+  for (const k of Object.keys(TOPIC_LABELS)) empty[k] = 'uncovered';
+  renderCoverage(empty);
+}
+
+// ── Chat helpers ───────────────────────────────────────────
+function appendMessage(role, text) {
+  // Remove typing indicator if present
+  const existing = chatMessages.querySelector('.typing-indicator');
+  if (existing) existing.remove();
+
+  const div = document.createElement('div');
+  div.className = `msg msg-${role}`;
+  div.textContent = text;
+  chatMessages.appendChild(div);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function appendSystem(text) {
+  const div = document.createElement('div');
+  div.className = 'msg msg-system';
+  div.textContent = text;
+  chatMessages.appendChild(div);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function showTyping() {
+  const wrap = document.createElement('div');
+  wrap.className = 'typing-indicator msg-assistant';
+  wrap.style.alignSelf = 'flex-start';
+  const dots = document.createElement('div');
+  dots.className = 'typing-dots';
+  dots.innerHTML = '<span></span><span></span><span></span>';
+  wrap.appendChild(dots);
+  chatMessages.appendChild(wrap);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+// ── Disable / enable input ─────────────────────────────────
+function setInputEnabled(enabled) {
+  chatInput.disabled    = !enabled;
+  btnSend.disabled      = !enabled;
+  btnEnd.disabled       = !enabled;
+}
+
+// ── Interview complete state ───────────────────────────────
+function markInterviewComplete() {
+  interviewDone = true;
+  setInputEnabled(false);
+  completeBanner.style.display = 'block';
+  btnGenTimeline.style.display = 'block';
+  appendSystem('— Interview complete —');
+}
+
+// ── API calls ──────────────────────────────────────────────
+async function createSession() {
+  const res = await fetch('/api/sessions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({}),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+async function sendTurn(message) {
+  const res = await fetch(`/api/sessions/${sessionId}/interview/turn`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Unknown error' }));
+    throw new Error(err.detail ?? `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+async function callComplete() {
+  const res = await fetch(`/api/sessions/${sessionId}/interview/complete`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  if (!res.ok && res.status !== 409) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+// ── Main turn handler ──────────────────────────────────────
+async function doTurn(userMessage) {
+  if (interviewDone || !sessionId) return;
+
+  setInputEnabled(false);
+
+  if (userMessage) {
+    appendMessage('user', userMessage);
+  }
+
+  showTyping();
+
+  try {
+    const data = await sendTurn(userMessage);
+    appendMessage('assistant', data.reply);
+    renderCoverage(data.coverage);
+
+    if (data.interview_complete) {
+      await callComplete().catch(() => {});
+      markInterviewComplete();
+    }
+  } catch (err) {
+    // Remove typing indicator on error
+    const indicator = chatMessages.querySelector('.typing-indicator');
+    if (indicator) indicator.remove();
+    appendSystem('The assistant had trouble — please try again.');
+    showToast(err.message, true);
+  } finally {
+    if (!interviewDone) {
+      setInputEnabled(true);
+      chatInput.focus();
+    }
+  }
+}
+
+// ── Send button / enter key ────────────────────────────────
+btnSend.addEventListener('click', () => {
+  const msg = chatInput.value.trim();
+  if (!msg) return;
+  chatInput.value = '';
+  doTurn(msg);
+});
+
+chatInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    btnSend.click();
+  }
+});
+
+// ── End interview early ────────────────────────────────────
+btnEnd.addEventListener('click', async () => {
+  if (interviewDone || !sessionId) return;
+  setInputEnabled(false);
+  try {
+    await callComplete();
+    markInterviewComplete();
+    showToast('Interview ended early.');
+  } catch (err) {
+    setInputEnabled(true);
+    showToast(err.message, true);
+  }
+});
+
+// ── New session button ─────────────────────────────────────
+btnNew.addEventListener('click', () => {
+  if (!confirm('Start a new session? The current session will remain in the database but this window will reset.')) return;
+  location.reload();
+});
+
+// ── Boot: create session + fire opening turn ───────────────
+async function boot() {
+  initCoverageStrip();
+  setInputEnabled(false);
+
+  try {
+    const session = await createSession();
+    sessionId = session.id;
+    sessionLabel.textContent = `Session: ${session.id.slice(0, 8)}…`;
+    sessionLabel.title = session.id;
+
+    // Fire an empty first turn so the agent introduces itself
+    await doTurn('');
+  } catch (err) {
+    appendSystem('Failed to start session. Check the server and refresh.');
+    showToast(err.message, true);
+    sessionLabel.textContent = 'Error';
+  }
+}
+
+boot();
+</script>
+</body>
+</html>
