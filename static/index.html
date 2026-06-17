@@ -297,6 +297,57 @@
       white-space: pre-wrap; max-height: 180px; overflow-y: auto;
     }
 
+    /* ── Timeline / events panel ── */
+    .panel-header-sub { font-weight: 400; opacity: .6; font-size: .75em; }
+
+    #tl-toolbar {
+      display: flex; align-items: center; gap: .6rem;
+      padding: .55rem .75rem; border-bottom: 1px solid #e5e7eb; flex-shrink: 0;
+    }
+    #btn-extract {
+      background: #1a1a2e; color: #fff; border: none;
+      border-radius: 6px; padding: .35rem .8rem;
+      font-size: .8rem; cursor: pointer; transition: background .15s;
+    }
+    #btn-extract:hover:not(:disabled) { background: #2d2d4e; }
+    #btn-extract:disabled { background: #64748b; cursor: not-allowed; }
+    #tl-count { font-size: .75rem; color: #94a3b8; }
+
+    #events-list { flex: 1; overflow-y: auto; padding: .5rem .6rem; }
+
+    .year-group { margin-bottom: .75rem; }
+    .year-label {
+      font-size: .68rem; font-weight: 700; letter-spacing: .1em;
+      text-transform: uppercase; color: #6b7280;
+      padding: .2rem .2rem .3rem; border-bottom: 1px solid #e5e7eb;
+      margin-bottom: .4rem;
+    }
+    .event-card {
+      background: #fff; border: 1px solid #e5e7eb; border-radius: 8px;
+      padding: .5rem .65rem; margin-bottom: .35rem;
+      cursor: default; transition: background .1s;
+    }
+    .event-card:hover { background: #f8fafc; }
+    .event-card-top { display: flex; align-items: flex-start; gap: .4rem; }
+    .event-badge {
+      font-size: .6rem; font-weight: 700; letter-spacing: .05em;
+      text-transform: uppercase; padding: .15rem .45rem;
+      border-radius: 999px; white-space: nowrap; flex-shrink: 0;
+    }
+    .badge-Diagnosis      { background: #fee2e2; color: #991b1b; }
+    .badge-Medication     { background: #dbeafe; color: #1e40af; }
+    .badge-LabResult      { background: #dcfce7; color: #166534; }
+    .badge-Surgery        { background: #fef3c7; color: #92400e; }
+    .badge-Hospitalization{ background: #ede9fe; color: #5b21b6; }
+    .badge-Symptom        { background: #fef9c3; color: #854d0e; }
+    .badge-Consultation   { background: #f1f5f9; color: #475569; }
+
+    .event-desc { font-size: .8rem; color: #1e293b; flex: 1; line-height: 1.4; }
+    .event-meta { display: flex; gap: .5rem; margin-top: .25rem; align-items: center; }
+    .event-date { font-size: .7rem; color: #64748b; }
+    .event-date.vague { color: #f59e0b; }
+    .event-src  { font-size: .65rem; color: #94a3b8; margin-left: auto; }
+
     /* ── Toast ── */
     #toast {
       position: fixed; bottom: 1.25rem; left: 50%;
@@ -360,12 +411,17 @@
     </div>
   </div>
 
-  <!-- RIGHT: Timeline -->
-  <div class="panel">
-    <div class="panel-header">Timeline</div>
-    <div class="panel-body">
-      <!-- PHASE 4: structured medical timeline -->
-      <div class="placeholder">Medical timeline will appear here.<br>Complete the interview first.</div>
+  <!-- RIGHT: Raw events (pre-fusion) -->
+  <div class="panel" id="panel-timeline">
+    <div class="panel-header">
+      Raw events <span class="panel-header-sub">(pre-fusion)</span>
+    </div>
+    <div id="tl-toolbar">
+      <button id="btn-extract">Extract events</button>
+      <span id="tl-count"></span>
+    </div>
+    <div id="events-list">
+      <div class="placeholder">Run "Extract events" after the interview or uploading documents.</div>
     </div>
   </div>
 </div>
@@ -730,8 +786,9 @@ async function rehydrate(id) {
   if (coverage && Object.keys(coverage).length) renderCoverage(coverage);
   else initCoverageStrip();
 
-  // Restore docs
+  // Restore docs + events
   refreshDocList();
+  loadEvents();
 
   // Replay transcript into chat
   for (const turn of (session.transcript || [])) {
@@ -783,6 +840,7 @@ async function startFreshSession() {
     sessionLabel.title = session.id;
     setSessionParam(session.id);
     refreshDocList();
+    loadEvents();
     await doTurn('');
   } catch (err) {
     appendSystem('Failed to start session. Check the server and refresh.');
@@ -978,6 +1036,160 @@ fileInput.addEventListener('change', async (e) => {
 dropzone.addEventListener('click', (e) => {
   if (e.target.tagName !== 'LABEL') fileInput.click();
 });
+
+// ── Timeline / events panel ────────────────────────────────
+const btnExtract = document.getElementById('btn-extract');
+const eventsList = document.getElementById('events-list');
+const tlCount    = document.getElementById('tl-count');
+
+const TYPE_LABELS = {
+  Diagnosis: 'Diagnosis', Medication: 'Medication', LabResult: 'Lab Result',
+  Surgery: 'Surgery', Hospitalization: 'Hospitalization',
+  Symptom: 'Symptom', Consultation: 'Consultation',
+};
+
+function formatEventDate(ev) {
+  const vague = ev.date_confidence < 0.5;
+  let label = '';
+  if (ev.date_start) {
+    const d = new Date(ev.date_start + 'T00:00:00');
+    const opts = ev.date_precision === 'exact'
+      ? { day: 'numeric', month: 'short', year: 'numeric' }
+      : ev.date_precision === 'month'
+        ? { month: 'short', year: 'numeric' }
+        : { year: 'numeric' };
+    label = d.toLocaleDateString('en-IN', opts);
+    if (vague) label = '~ ' + label;
+  } else if (ev.date_raw) {
+    label = '~ ' + ev.date_raw;
+  } else {
+    label = 'Unknown date';
+  }
+  return { label, vague };
+}
+
+function yearOf(ev) {
+  if (ev.date_start) return new Date(ev.date_start + 'T00:00:00').getFullYear();
+  return null;
+}
+
+function renderEvents(events) {
+  eventsList.innerHTML = '';
+  if (!events.length) {
+    eventsList.innerHTML = '<div class="doc-empty">No events extracted yet.</div>';
+    tlCount.textContent = '';
+    return;
+  }
+
+  tlCount.textContent = `${events.length} event${events.length !== 1 ? 's' : ''}`;
+
+  // Group by year (null → "Unknown date")
+  const groups = new Map();
+  for (const ev of events) {
+    const yr = yearOf(ev) ?? '?';
+    if (!groups.has(yr)) groups.set(yr, []);
+    groups.get(yr).push(ev);
+  }
+
+  // Sort years: numeric ascending, '?' at end
+  const sortedYears = [...groups.keys()].sort((a, b) => {
+    if (a === '?' && b === '?') return 0;
+    if (a === '?') return 1;
+    if (b === '?') return -1;
+    return a - b;
+  });
+
+  for (const yr of sortedYears) {
+    const grp = document.createElement('div');
+    grp.className = 'year-group';
+
+    const lbl = document.createElement('div');
+    lbl.className = 'year-label';
+    lbl.textContent = yr === '?' ? 'Date unknown' : yr;
+    grp.appendChild(lbl);
+
+    for (const ev of groups.get(yr)) {
+      const card = document.createElement('div');
+      card.className = 'event-card';
+
+      const top = document.createElement('div');
+      top.className = 'event-card-top';
+
+      const badge = document.createElement('span');
+      badge.className = `event-badge badge-${ev.event_type}`;
+      badge.textContent = TYPE_LABELS[ev.event_type] ?? ev.event_type;
+
+      const desc = document.createElement('div');
+      desc.className = 'event-desc';
+      desc.textContent = ev.description;
+
+      top.appendChild(badge);
+      top.appendChild(desc);
+      card.appendChild(top);
+
+      const meta = document.createElement('div');
+      meta.className = 'event-meta';
+
+      const { label, vague } = formatEventDate(ev);
+      const dateEl = document.createElement('span');
+      dateEl.className = 'event-date' + (vague ? ' vague' : '');
+      dateEl.textContent = label;
+      meta.appendChild(dateEl);
+
+      if (ev.source_id) {
+        const srcEl = document.createElement('span');
+        srcEl.className = 'event-src';
+        srcEl.textContent = '📄 doc';
+        srcEl.title = ev.source_id;
+        meta.appendChild(srcEl);
+      } else {
+        const srcEl = document.createElement('span');
+        srcEl.className = 'event-src';
+        srcEl.textContent = '💬 interview';
+        meta.appendChild(srcEl);
+      }
+
+      card.appendChild(meta);
+      grp.appendChild(card);
+    }
+    eventsList.appendChild(grp);
+  }
+}
+
+async function runExtract() {
+  if (!sessionId) return;
+  btnExtract.disabled = true;
+  btnExtract.textContent = 'Extracting…';
+  try {
+    const r1 = await fetch(`/api/sessions/${sessionId}/events/extract`, { method: 'POST' });
+    if (!r1.ok) {
+      const e = await r1.json().catch(() => ({}));
+      throw new Error(e.detail || `HTTP ${r1.status}`);
+    }
+    const summary = await r1.json();
+    const r2 = await fetch(`/api/sessions/${sessionId}/events`);
+    const events = await r2.json();
+    renderEvents(events);
+    showToast(`Extracted ${summary.total} event${summary.total !== 1 ? 's' : ''}`);
+  } catch (err) {
+    showToast(`Extraction failed: ${err.message}`, true);
+  } finally {
+    btnExtract.disabled = false;
+    btnExtract.textContent = 'Extract events';
+  }
+}
+
+async function loadEvents() {
+  if (!sessionId) return;
+  try {
+    const r = await fetch(`/api/sessions/${sessionId}/events`);
+    if (!r.ok) return;
+    const events = await r.json();
+    if (events.length) renderEvents(events);
+  } catch (_) { /* silent */ }
+}
+
+btnExtract.addEventListener('click', runExtract);
 
 boot();
 </script>

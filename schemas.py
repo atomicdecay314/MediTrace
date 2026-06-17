@@ -6,8 +6,8 @@ from pydantic import BaseModel, Field, field_validator
 
 # PHASE 2 (complete): InterviewTurnIn, InterviewTurnOut
 # PHASE 3 (complete): DocumentUploadOut, DocumentOut, DocumentDetailOut
-# PHASE 4: EventOut, ConflictOut, TimelineOut
-# PHASE 5: FusionResultOut
+# PHASE 4 (complete): EventOut, ExtractOut
+# PHASE 5: FusedTimelineOut, ConflictOut
 
 _COVERAGE_TOPICS = [
     "chief_complaint",
@@ -33,6 +33,30 @@ class SessionOut(BaseModel):
     counts: dict  # {sources: int, events: int, conflicts: int}
 
     model_config = {"from_attributes": True}
+
+
+from datetime import date as _date
+
+
+class EventOut(BaseModel):
+    id: str
+    event_type: str
+    description: str
+    date_start: _date | None
+    date_end: _date | None
+    date_raw: str
+    date_precision: str
+    date_confidence: float
+    confidence: float
+    source_id: str | None
+    structured: dict = Field(default_factory=dict)
+
+    model_config = {"from_attributes": True}
+
+
+class ExtractOut(BaseModel):
+    counts: dict
+    total: int
 
 
 class DocumentUploadOut(BaseModel):

@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from config import settings
 from database import Base, engine
 from routers.documents import router as documents_router
+from routers.timeline import router as timeline_router
 from routers.interview import router as interview_router
 from routers.session import router as session_router
 
@@ -32,6 +33,7 @@ app.add_middleware(
 app.include_router(session_router)
 app.include_router(interview_router)
 app.include_router(documents_router)
+app.include_router(timeline_router)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
