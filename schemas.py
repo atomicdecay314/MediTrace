@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field, field_validator
 # PHASE 2 (complete): InterviewTurnIn, InterviewTurnOut
 # PHASE 3 (complete): DocumentUploadOut, DocumentOut, DocumentDetailOut
 # PHASE 4 (complete): EventOut, ExtractOut
-# PHASE 5: FusedTimelineOut, ConflictOut
+# PHASE 5 (complete): CanonicalEventOut, ConflictOut, TimelineOut, ConflictResolveIn
 
 _COVERAGE_TOPICS = [
     "chief_complaint",
@@ -57,6 +57,45 @@ class EventOut(BaseModel):
 class ExtractOut(BaseModel):
     counts: dict
     total: int
+
+
+class CanonicalEventOut(BaseModel):
+    id: str
+    event_type: str
+    description: str
+    date_start: _date | None
+    date_end: _date | None
+    date_raw: str
+    date_precision: str
+    date_confidence: float
+    confidence: float
+    cluster_id: str | None
+    cluster_size: int = 1
+    source_ids: list[str] = Field(default_factory=list)
+    structured: dict = Field(default_factory=dict)
+
+    model_config = {"from_attributes": True}
+
+
+class ConflictOut(BaseModel):
+    id: str
+    conflict_type: str
+    detail: str
+    event_a_id: str
+    event_b_id: str
+    resolution: str
+
+    model_config = {"from_attributes": True}
+
+
+class TimelineOut(BaseModel):
+    status: str
+    events: list[CanonicalEventOut]
+    conflicts: list[ConflictOut]
+
+
+class ConflictResolveIn(BaseModel):
+    resolution: str   # a_wins | b_wins | both_noted
 
 
 class DocumentUploadOut(BaseModel):

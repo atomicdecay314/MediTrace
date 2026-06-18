@@ -301,19 +301,68 @@
     .panel-header-sub { font-weight: 400; opacity: .6; font-size: .75em; }
 
     #tl-toolbar {
-      display: flex; align-items: center; gap: .6rem;
-      padding: .55rem .75rem; border-bottom: 1px solid #e5e7eb; flex-shrink: 0;
+      display: flex; align-items: center; gap: .45rem; flex-wrap: wrap;
+      padding: .5rem .75rem; border-bottom: 1px solid #e5e7eb; flex-shrink: 0;
     }
-    #btn-extract {
-      background: #1a1a2e; color: #fff; border: none;
-      border-radius: 6px; padding: .35rem .8rem;
-      font-size: .8rem; cursor: pointer; transition: background .15s;
+    #btn-extract, #btn-generate {
+      border: none; border-radius: 6px; padding: .32rem .7rem;
+      font-size: .78rem; cursor: pointer; transition: background .15s;
     }
-    #btn-extract:hover:not(:disabled) { background: #2d2d4e; }
-    #btn-extract:disabled { background: #64748b; cursor: not-allowed; }
-    #tl-count { font-size: .75rem; color: #94a3b8; }
+    #btn-extract  { background: #1a1a2e; color: #fff; }
+    #btn-generate { background: #059669; color: #fff; }
+    #btn-extract:hover:not(:disabled)  { background: #2d2d4e; }
+    #btn-generate:hover:not(:disabled) { background: #047857; }
+    #btn-extract:disabled, #btn-generate:disabled { background: #64748b; cursor: not-allowed; }
+    .tl-toggle-btn {
+      margin-left: auto; background: none; border: 1px solid #d1d5db;
+      border-radius: 6px; padding: .25rem .6rem; font-size: .72rem;
+      cursor: pointer; color: #6b7280; transition: border-color .15s;
+    }
+    .tl-toggle-btn:hover { border-color: #94a3b8; color: #374151; }
+    #tl-status { font-size: .72rem; color: #94a3b8; }
+    #tl-count  { font-size: .75rem; color: #94a3b8; }
 
-    #events-list { flex: 1; overflow-y: auto; padding: .5rem .6rem; }
+    .tl-view { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+    .tl-view.hidden { display: none; }
+    #events-list, #fused-events-list { flex: 1; overflow-y: auto; padding: .5rem .6rem; }
+
+    /* Conflict section */
+    #conflicts-section { flex-shrink: 0; }
+    .conflict-card {
+      margin: .4rem .6rem; border: 1px solid #fca5a5; border-radius: 8px;
+      background: #fff5f5; padding: .5rem .65rem; font-size: .78rem;
+    }
+    .conflict-header { display: flex; align-items: center; gap: .4rem; margin-bottom: .3rem; }
+    .conflict-type-badge {
+      font-size: .6rem; font-weight: 700; text-transform: uppercase;
+      padding: .12rem .4rem; border-radius: 999px; white-space: nowrap;
+      background: #fee2e2; color: #991b1b;
+    }
+    .conflict-detail { font-size: .77rem; color: #374151; flex: 1; }
+    .conflict-events { display: flex; gap: .4rem; margin-bottom: .4rem; }
+    .conflict-ev {
+      flex: 1; background: #f8fafc; border: 1px solid #e2e8f0;
+      border-radius: 6px; padding: .3rem .5rem; font-size: .72rem; color: #475569;
+    }
+    .conflict-ev-label { font-size: .62rem; color: #94a3b8; display: block; }
+    .conflict-actions { display: flex; gap: .3rem; flex-wrap: wrap; }
+    .conflict-resolve-btn {
+      font-size: .7rem; border: 1px solid #d1d5db; border-radius: 5px;
+      padding: .2rem .5rem; cursor: pointer; background: #fff; color: #374151;
+      transition: background .15s;
+    }
+    .conflict-resolve-btn:hover { background: #f1f5f9; }
+    .conflict-resolve-btn.active { background: #1a1a2e; color: #fff; border-color: #1a1a2e; }
+    .conflict-resolved-label { font-size: .7rem; color: #059669; font-style: italic; }
+
+    /* Canonical event extras */
+    .event-flag { color: #dc2626; font-size: .75rem; flex-shrink: 0; }
+    .event-sources { display: flex; gap: .25rem; flex-wrap: wrap; margin-top: .2rem; }
+    .src-chip {
+      font-size: .62rem; padding: .1rem .35rem; border-radius: 999px;
+      background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0;
+    }
+    .cluster-hint { font-size: .65rem; color: #94a3b8; margin-top: .15rem; }
 
     .year-group { margin-bottom: .75rem; }
     .year-label {
@@ -411,17 +460,32 @@
     </div>
   </div>
 
-  <!-- RIGHT: Raw events (pre-fusion) -->
+  <!-- RIGHT: Timeline (fused) / Raw events toggle -->
   <div class="panel" id="panel-timeline">
-    <div class="panel-header">
-      Raw events <span class="panel-header-sub">(pre-fusion)</span>
+    <div class="panel-header" style="display:flex;align-items:center">
+      <span id="tl-panel-label">Timeline</span>
+      <button id="btn-tl-toggle" class="tl-toggle-btn">Raw events</button>
     </div>
     <div id="tl-toolbar">
-      <button id="btn-extract">Extract events</button>
+      <button id="btn-extract">Extract</button>
+      <button id="btn-generate" disabled>Generate timeline</button>
+      <span id="tl-status"></span>
       <span id="tl-count"></span>
     </div>
-    <div id="events-list">
-      <div class="placeholder">Run "Extract events" after the interview or uploading documents.</div>
+
+    <!-- Fused timeline view (active after generation) -->
+    <div id="view-fused" class="tl-view hidden">
+      <div id="conflicts-section"></div>
+      <div id="fused-events-list">
+        <div class="placeholder">Timeline will appear here.</div>
+      </div>
+    </div>
+
+    <!-- Raw events view (Phase 4, default) -->
+    <div id="view-raw" class="tl-view">
+      <div id="events-list">
+        <div class="placeholder">Run "Extract" after the interview or uploading documents.</div>
+      </div>
     </div>
   </div>
 </div>
@@ -786,9 +850,11 @@ async function rehydrate(id) {
   if (coverage && Object.keys(coverage).length) renderCoverage(coverage);
   else initCoverageStrip();
 
-  // Restore docs + events
+  // Restore docs, events, timeline
   refreshDocList();
   loadEvents();
+  loadTimeline();
+  _enableGenerate();
 
   // Replay transcript into chat
   for (const turn of (session.transcript || [])) {
@@ -841,6 +907,7 @@ async function startFreshSession() {
     setSessionParam(session.id);
     refreshDocList();
     loadEvents();
+    _enableGenerate();
     await doTurn('');
   } catch (err) {
     appendSystem('Failed to start session. Check the server and refresh.');
@@ -1190,6 +1257,314 @@ async function loadEvents() {
 }
 
 btnExtract.addEventListener('click', runExtract);
+
+// ── Fused timeline panel ────────────────────────────────────
+const btnGenerate    = document.getElementById('btn-generate');
+const btnTlToggle    = document.getElementById('btn-tl-toggle');
+const tlPanelLabel   = document.getElementById('tl-panel-label');
+const tlStatus       = document.getElementById('tl-status');
+const viewFused      = document.getElementById('view-fused');
+const viewRaw        = document.getElementById('view-raw');
+const conflictsSec   = document.getElementById('conflicts-section');
+const fusedList      = document.getElementById('fused-events-list');
+
+let tlPollTimer = null;
+let tlMode = 'raw';        // 'raw' | 'fused'
+let _tlData = null;        // last TimelineOut response
+
+// ── View toggle ─────────────────────────────────────────────
+function switchView(mode) {
+  tlMode = mode;
+  if (mode === 'fused') {
+    viewFused.classList.remove('hidden');
+    viewRaw.classList.add('hidden');
+    tlPanelLabel.textContent = 'Timeline';
+    btnTlToggle.textContent = 'Raw events';
+  } else {
+    viewRaw.classList.remove('hidden');
+    viewFused.classList.add('hidden');
+    tlPanelLabel.textContent = 'Raw events';
+    btnTlToggle.textContent = 'Timeline';
+  }
+}
+
+btnTlToggle.addEventListener('click', () => {
+  switchView(tlMode === 'fused' ? 'raw' : 'fused');
+});
+
+// ── Generate ─────────────────────────────────────────────────
+async function runGenerate() {
+  if (!sessionId) return;
+  btnGenerate.disabled = true;
+  btnGenerate.textContent = 'Generating…';
+  tlStatus.textContent = '⏳';
+  try {
+    const r = await fetch(`/api/sessions/${sessionId}/timeline/generate`, { method: 'POST' });
+    if (!r.ok) {
+      const e = await r.json().catch(() => ({}));
+      throw new Error(e.error || e.detail || `HTTP ${r.status}`);
+    }
+    startTlPoll();
+  } catch (err) {
+    showToast(err.message, true);
+    btnGenerate.disabled = false;
+    btnGenerate.textContent = 'Generate timeline';
+    tlStatus.textContent = '';
+  }
+}
+
+function startTlPoll() {
+  if (tlPollTimer) return;
+  tlPollTimer = setInterval(async () => {
+    if (!sessionId) return;
+    const r = await fetch(`/api/sessions/${sessionId}/timeline`).catch(() => null);
+    if (!r?.ok) return;
+    const data = await r.json();
+    if (data.status === 'timeline_generated') {
+      clearInterval(tlPollTimer); tlPollTimer = null;
+      _tlData = data;
+      renderFusedTimeline(data);
+      switchView('fused');
+      btnGenerate.disabled = false;
+      btnGenerate.textContent = 'Regenerate';
+      tlStatus.textContent = '';
+      showToast(`Timeline ready — ${data.events.length} events`);
+    } else if (data.status === 'failed') {
+      clearInterval(tlPollTimer); tlPollTimer = null;
+      showToast('Timeline generation failed.', true);
+      btnGenerate.disabled = false;
+      btnGenerate.textContent = 'Generate timeline';
+      tlStatus.textContent = '';
+    }
+  }, 1500);
+}
+
+// ── Render fused timeline ────────────────────────────────────
+function renderFusedTimeline(data) {
+  _tlData = data;
+  const conflictedIds = new Set(
+    data.conflicts.flatMap(c => [c.event_a_id, c.event_b_id])
+  );
+
+  // Conflicts section
+  conflictsSec.innerHTML = '';
+  if (data.conflicts.length) {
+    const hdr = document.createElement('div');
+    hdr.style.cssText = 'font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#991b1b;padding:.4rem .6rem .1rem;';
+    hdr.textContent = `⚠ ${data.conflicts.length} conflict${data.conflicts.length > 1 ? 's' : ''}`;
+    conflictsSec.appendChild(hdr);
+    data.conflicts.forEach(c => conflictsSec.appendChild(makeConflictCard(c, data.events)));
+  }
+
+  // Fused events by year
+  fusedList.innerHTML = '';
+  if (!data.events.length) {
+    fusedList.innerHTML = '<div class="doc-empty">No events in timeline.</div>';
+    return;
+  }
+
+  const groups = new Map();
+  for (const ev of data.events) {
+    const yr = ev.date_start ? new Date(ev.date_start + 'T00:00:00').getFullYear() : '?';
+    if (!groups.has(yr)) groups.set(yr, []);
+    groups.get(yr).push(ev);
+  }
+  const sortedYrs = [...groups.keys()].sort((a, b) => {
+    if (a === '?' && b === '?') return 0;
+    if (a === '?') return 1; if (b === '?') return -1; return a - b;
+  });
+
+  for (const yr of sortedYrs) {
+    const grp = document.createElement('div');
+    grp.className = 'year-group';
+    const lbl = document.createElement('div');
+    lbl.className = 'year-label';
+    lbl.textContent = yr === '?' ? 'Date unknown' : yr;
+    grp.appendChild(lbl);
+    for (const ev of groups.get(yr)) {
+      grp.appendChild(makeCanonicalCard(ev, conflictedIds.has(ev.id)));
+    }
+    fusedList.appendChild(grp);
+  }
+}
+
+function makeCanonicalCard(ev, hasConflict) {
+  const card = document.createElement('div');
+  card.className = 'event-card';
+  if (hasConflict) card.style.borderColor = '#fca5a5';
+
+  const top = document.createElement('div');
+  top.className = 'event-card-top';
+
+  const badge = document.createElement('span');
+  badge.className = `event-badge badge-${ev.event_type}`;
+  badge.textContent = ev.event_type;
+
+  const desc = document.createElement('div');
+  desc.className = 'event-desc';
+  desc.textContent = ev.description;
+
+  if (hasConflict) {
+    const flag = document.createElement('span');
+    flag.className = 'event-flag'; flag.textContent = '⚠';
+    flag.title = 'Conflict detected — see conflicts section';
+    top.appendChild(badge); top.appendChild(desc); top.appendChild(flag);
+  } else {
+    top.appendChild(badge); top.appendChild(desc);
+  }
+  card.appendChild(top);
+
+  // Date
+  const { label, vague } = formatEventDate(ev);
+  const meta = document.createElement('div');
+  meta.className = 'event-meta';
+  const dateEl = document.createElement('span');
+  dateEl.className = 'event-date' + (vague ? ' vague' : '');
+  dateEl.textContent = label;
+  meta.appendChild(dateEl);
+
+  // Cluster hint
+  if (ev.cluster_size > 1) {
+    const hint = document.createElement('span');
+    hint.className = 'cluster-hint';
+    hint.textContent = `${ev.cluster_size} sources merged`;
+    meta.appendChild(hint);
+  }
+  card.appendChild(meta);
+
+  // Source chips
+  if (ev.source_ids && ev.source_ids.length) {
+    const srcs = document.createElement('div');
+    srcs.className = 'event-sources';
+    ev.source_ids.forEach(sid => {
+      const chip = document.createElement('span');
+      chip.className = 'src-chip';
+      chip.textContent = '📄';
+      chip.title = sid;
+      srcs.appendChild(chip);
+    });
+    if (!ev.source_ids.length) {  // interview only
+      const chip = document.createElement('span');
+      chip.className = 'src-chip'; chip.textContent = '💬 interview';
+      srcs.appendChild(chip);
+    }
+    card.appendChild(srcs);
+  } else {
+    const srcs = document.createElement('div');
+    srcs.className = 'event-sources';
+    const chip = document.createElement('span');
+    chip.className = 'src-chip'; chip.textContent = '💬 interview';
+    srcs.appendChild(chip);
+    card.appendChild(srcs);
+  }
+
+  return card;
+}
+
+function makeConflictCard(conflict, allEvents) {
+  const evMap = Object.fromEntries(allEvents.map(e => [e.id, e]));
+  const evA = evMap[conflict.event_a_id];
+  const evB = evMap[conflict.event_b_id];
+
+  const card = document.createElement('div');
+  card.className = 'conflict-card';
+  card.dataset.conflictId = conflict.id;
+
+  const hdr = document.createElement('div');
+  hdr.className = 'conflict-header';
+  const typeBadge = document.createElement('span');
+  typeBadge.className = 'conflict-type-badge';
+  typeBadge.textContent = conflict.conflict_type.replace(/_/g, ' ');
+  const detail = document.createElement('span');
+  detail.className = 'conflict-detail';
+  detail.textContent = conflict.detail;
+  hdr.appendChild(typeBadge); hdr.appendChild(detail);
+  card.appendChild(hdr);
+
+  // Event pair
+  const evPair = document.createElement('div');
+  evPair.className = 'conflict-events';
+  [evA, evB].forEach((ev, i) => {
+    const box = document.createElement('div');
+    box.className = 'conflict-ev';
+    const lbl = document.createElement('span');
+    lbl.className = 'conflict-ev-label';
+    lbl.textContent = i === 0 ? 'Source A' : 'Source B';
+    box.appendChild(lbl);
+    box.appendChild(document.createTextNode(ev ? ev.description : '(unknown)'));
+    evPair.appendChild(box);
+  });
+  card.appendChild(evPair);
+
+  // Resolution buttons
+  const actions = document.createElement('div');
+  actions.className = 'conflict-actions';
+
+  if (conflict.resolution !== 'unresolved') {
+    const resolved = document.createElement('span');
+    resolved.className = 'conflict-resolved-label';
+    resolved.textContent = `✓ Resolved: ${conflict.resolution.replace(/_/g, ' ')}`;
+    actions.appendChild(resolved);
+  } else {
+    [['a_wins', 'A is correct'], ['b_wins', 'B is correct'], ['both_noted', 'Note both']].forEach(([val, label]) => {
+      const btn = document.createElement('button');
+      btn.className = 'conflict-resolve-btn';
+      if (conflict.resolution === val) btn.classList.add('active');
+      btn.textContent = label;
+      btn.onclick = () => resolveConflict(conflict.id, val, card);
+      actions.appendChild(btn);
+    });
+  }
+  card.appendChild(actions);
+  return card;
+}
+
+async function resolveConflict(conflictId, resolution, cardEl) {
+  if (!sessionId) return;
+  try {
+    const r = await fetch(`/api/sessions/${sessionId}/conflicts/${conflictId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resolution }),
+    });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    // Re-render conflicts section
+    if (_tlData) {
+      const idx = _tlData.conflicts.findIndex(c => c.id === conflictId);
+      if (idx >= 0) _tlData.conflicts[idx].resolution = resolution;
+      renderFusedTimeline(_tlData);
+    }
+    showToast('Conflict resolved');
+  } catch (err) {
+    showToast(err.message, true);
+  }
+}
+
+// Load existing timeline on session rehydrate
+async function loadTimeline() {
+  if (!sessionId) return;
+  try {
+    const r = await fetch(`/api/sessions/${sessionId}/timeline`);
+    if (!r.ok) return;
+    const data = await r.json();
+    if (data.status === 'timeline_generated' && data.events.length) {
+      _tlData = data;
+      renderFusedTimeline(data);
+      switchView('fused');
+      btnGenerate.textContent = 'Regenerate';
+    } else if (data.status === 'processing') {
+      btnGenerate.disabled = true;
+      btnGenerate.textContent = 'Generating…';
+      tlStatus.textContent = '⏳';
+      startTlPoll();
+    }
+  } catch (_) { /* silent */ }
+}
+
+btnGenerate.addEventListener('click', runGenerate);
+
+// Enable generate button once we have a session
+function _enableGenerate() { if (sessionId) btnGenerate.disabled = false; }
 
 boot();
 </script>
