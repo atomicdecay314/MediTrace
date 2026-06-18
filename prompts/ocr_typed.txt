@@ -25,9 +25,20 @@ OUTPUT FORMAT:
     }
   ],
   "diagnoses": ["<diagnosis or ICD code exactly as written>"],
+  "medications": [
+    {
+      "drug_name": "<drug name exactly as printed, or null>",
+      "strength": "<e.g. '500 mg', '40mg', or null>",
+      "dose": "<amount per administration, e.g. '1 tab', '5 ml', or null>",
+      "frequency": "<frequency as printed, e.g. 'OD', 'BD', 'TDS', or null>",
+      "duration": "<treatment duration as written, or null>"
+    }
+  ],
   "summary_impression": "<overall impression, conclusion, or assessment text, or null>",
   "notes": "<any other clinically relevant text not captured above, or null>",
   "warnings": ["<concerns about document completeness, illegible sections, or cut-off text>"]
 }
+
+NOTE: For lab reports and discharge summaries, set medications to []. For prescriptions, extract every medication listed.
 
 MULTI-PAGE NOTE: If analyzing a single page from a multi-page document, extract all content visible on this page only. Do not infer content from other pages.

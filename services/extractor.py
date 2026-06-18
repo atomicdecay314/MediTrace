@@ -63,11 +63,12 @@ def extract_from_document(raw_source) -> list[dict]:
     kind = raw_source.kind
     sid = raw_source.session_id
     src = raw_source.id
+    extracted_text = raw_source.extracted_text or ""
 
     if kind == "image_handwritten":
         return _from_prescription(meta, sid, src)
     if kind == "pdf_typed":
-        return _from_typed_doc(meta, sid, src)
+        return _from_typed_doc(meta, extracted_text, sid, src)
     return []
 
 
@@ -99,7 +100,26 @@ def _from_prescription(meta: dict, session_id: str, source_id: str) -> list[dict
     return events
 
 
-def _from_typed_doc(meta: dict, session_id: str, source_id: str) -> list[dict]:
+_MED_EXTRACT_SYS = (
+    "Extract all medications from this typed prescription or clinical document text. "
+    "Return ONLY valid JSON: "
+    '{"medications":[{"drug_name":"<name>","strength":"<e.g. 500mg or null>",'
+    '"dose":"<e.g. 1 tab or null>","frequency":"<e.g. OD/BD/TDS or null>","duration":"<or null>"}]} '
+    "If no medications found, return {\"medications\":[]}."
+)
+
+
+def _fallback_meds_from_text(text: str) -> list[dict]:
+    """LLM fallback: extract medications from extracted_text for existing typed prescriptions."""
+    try:
+        result = gemini_client.json_completion(_MED_EXTRACT_SYS, text[:4000])
+        return result.get("medications") or []
+    except Exception as exc:
+        logger.warning("Medication fallback extraction failed: %s", exc)
+        return []
+
+
+def _from_typed_doc(meta: dict, extracted_text: str, session_id: str, source_id: str) -> list[dict]:
     events: list[dict] = []
     date_raw = meta.get("report_date") or ""
     dr = dates_mod.normalize(date_raw)
@@ -122,7 +142,31 @@ def _from_typed_doc(meta: dict, session_id: str, source_id: str) -> list[dict]:
         if not dx or _is_null_value(dx):
             continue
         events.append(_base(source_id, session_id, "Diagnosis",
-                            dx, date_raw, dr, {"source": "lab_report"}, 0.80))
+                            dx, date_raw, dr, {"source": "typed_document"}, 0.80))
+
+    # Medications — present in meta when document was OCR'd with updated ocr_typed.txt,
+    # OR recovered via LLM fallback for existing prescriptions OCR'd with the old prompt.
+    meds = meta.get("medications") or []
+    if not meds and meta.get("document_type") == "prescription" and extracted_text:
+        logger.info("Typed prescription has no medications in meta; running LLM fallback")
+        meds = _fallback_meds_from_text(extracted_text)
+
+    for m in meds:
+        drug_name = m.get("drug_name") or m.get("name")
+        if not drug_name or _is_null_value(drug_name):
+            continue
+        strength = f" {m['strength']}" if m.get("strength") else ""
+        desc = f"{drug_name}{strength}"
+        structured = {
+            "drug_name": drug_name,
+            "normalized_guess": drug_name,  # align with handwritten schema for fusion
+            "strength": m.get("strength"),
+            "dose": m.get("dose"),
+            "frequency": m.get("frequency"),
+            "duration": m.get("duration"),
+        }
+        events.append(_base(source_id, session_id, "Medication",
+                            desc, date_raw, dr, structured, 0.85))
 
     return events
 
@@ -133,17 +177,31 @@ def extract_from_interview(session) -> list[dict]:
     """Extract Event dicts from a Session's transcript via LLM."""
     transcript = session.transcript or []
     if not transcript:
+        logger.warning("extract_from_interview: transcript is empty for session %s", session.id)
         return []
 
-    lines = []
-    for turn in transcript:
-        role = "Patient" if turn.get("role") == "user" else "Clinician"
-        lines.append(f"{role}: {turn.get('content', '')}")
-    transcript_text = "\n".join(lines)
+    # Build the transcript array — pass as a JSON dict so the LLM
+    # clearly receives the data (raw text as a user message confused the model
+    # because the system prompt says "below" but the text was in a separate turn).
+    transcript_entries = [
+        {
+            "role": "Patient" if t.get("role") == "user" else "Clinician",
+            "text": t.get("content", ""),
+        }
+        for t in transcript
+        if t.get("content", "").strip()
+    ]
+    if not transcript_entries:
+        logger.warning("extract_from_interview: no non-empty turns for session %s", session.id)
+        return []
+
+    payload = {"transcript": transcript_entries}
+    logger.info("extract_from_interview: %d turns for session %s", len(transcript_entries), session.id)
 
     try:
-        result = gemini_client.json_completion(_extract_prompt, transcript_text)
+        result = gemini_client.json_completion(_extract_prompt, payload)
         raw_events = result.get("events") or []
+        logger.info("extract_from_interview: LLM returned %d events", len(raw_events))
     except GeminiParseError as exc:
         logger.error("Interview extraction parse error: %s", exc)
         return []
@@ -161,7 +219,7 @@ def extract_from_interview(session) -> list[dict]:
             continue
         date_raw = (e.get("date_raw") or "").strip()
         structured = e.get("structured") or {}
-        confidence = min(float(e.get("confidence") or 0.6), 0.6)  # cap self-reported at 0.6
+        confidence = min(float(e.get("confidence") or 0.6), 0.6)  # cap self-reported
 
         dr = dates_mod.normalize(date_raw) if date_raw else dates_mod.unknown()
         events.append(_base(None, session.id, event_type,
