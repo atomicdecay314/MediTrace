@@ -7,6 +7,7 @@ Does NOT persist to DB — the router handles that.
 from __future__ import annotations
 
 import logging
+import re
 from pathlib import Path
 from typing import Any
 
@@ -26,6 +27,14 @@ _VALID_EVENT_TYPES = {
 }
 
 _NULL_LIKE = {"", "null", "none", "n/a", "no sample", "not done", "-"}
+
+# Heuristic patterns that strongly signal a denial regardless of LLM is_negation flag.
+# These catch cases where the model inverts a negation into a positive assertion.
+_DENIAL_DESC_RE = re.compile(
+    r"^patient\s+denies\b|^denies\b|^no\s+history\b|^never\s+had\b|"
+    r"^no\s+h/o\b|^no\s+known\b",
+    re.I,
+)
 
 
 def _is_null_value(v: Any) -> bool:
@@ -220,6 +229,32 @@ def extract_from_interview(session) -> list[dict]:
         date_raw = (e.get("date_raw") or "").strip()
         is_negation = bool(e.get("is_negation", False))
         structured = dict(e.get("structured") or {})
+
+        # ── Defensive negation repair ──────────────────────────────────────
+        # If the LLM inverted the negation (said is_negation=false but the
+        # description signals a denial), force is_negation=True.
+        if not is_negation and _DENIAL_DESC_RE.match(description):
+            is_negation = True
+            logger.warning("Forced is_negation=True based on description text: %r", description)
+
+        # If is_negation=True, ensure description reads "Patient denies X"
+        # and structured.negated_claim = "X" (without the prefix).
+        if is_negation:
+            # Extract the denied thing
+            negated_claim = structured.get("negated_claim") or ""
+            if not negated_claim:
+                # Derive from description: strip known denial prefixes
+                negated_claim = re.sub(
+                    r"^patient\s+denies\s+|^denies\s+|^no\s+history\s+of\s+|"
+                    r"^never\s+had\s+|^no\s+h/o\s+|^no\s+known\s+",
+                    "",
+                    description,
+                    flags=re.I,
+                ).strip() or description
+            structured["negated_claim"] = negated_claim
+            # Canonical denial description so it's never confused with a positive event
+            description = f"Patient denies {negated_claim}"
+
         structured["is_negation"] = is_negation
 
         # For Medication events: ensure normalized_guess is set so fusion dedup

@@ -378,7 +378,15 @@ def _contradiction_pass(canonical: list[Event], session_id: str, db: DBSession) 
 
     payload = {
         'patient_denials': [
-            {'id': e.id, 'denied_claim': e.description, 'event_type': e.event_type}
+            {
+                'id': e.id,
+                # Use negated_claim (just the denied thing, e.g. "cholesterol problems")
+                # NOT the full description ("Patient denies cholesterol problems")
+                # so the LLM synonym match is clean.
+                'denied_claim': (e.structured or {}).get('negated_claim') or
+                                re.sub(r'^patient\s+denies\s+', '', e.description, flags=re.I).strip(),
+                'event_type': e.event_type,
+            }
             for e in negations
         ],
         'documented_events': [
