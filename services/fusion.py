@@ -247,6 +247,43 @@ def _call_fusion_llm(cluster: list[Event], kind_map: dict[str, str]) -> _FusionR
 
 # ── Apply cluster result ──────────────────────────────────────────────────────
 
+def _record_intra_conflicts(
+    result: _FusionResult, cluster: list[Event], session_id: str, db: DBSession
+) -> None:
+    """Record intra-cluster conflicts returned by the LLM. Skips already-resolved pairs."""
+    id_map = {e.id: e for e in cluster}
+    src_to_ev = {e.source_id: e for e in cluster if e.source_id}
+
+    def _resolve(ref: str) -> str | None:
+        if ref in id_map:
+            return ref
+        if ref in src_to_ev:
+            return src_to_ev[ref].id
+        return None
+
+    for fc in result.conflicts:
+        a_id = _resolve(fc.event_ref_a)
+        b_id = _resolve(fc.event_ref_b)
+        if not (a_id and b_id and a_id != b_id):
+            continue
+        # Don't re-create a conflict that the user already resolved
+        existing = db.query(Conflict).filter(
+            Conflict.session_id == session_id,
+            Conflict.event_a_id.in_([a_id, b_id]),
+            Conflict.event_b_id.in_([a_id, b_id]),
+        ).first()
+        if not existing:
+            db.add(Conflict(
+                id=str(uuid.uuid4()),
+                session_id=session_id,
+                event_a_id=a_id,
+                event_b_id=b_id,
+                conflict_type=fc.conflict_type,
+                detail=fc.detail,
+                resolution='unresolved',
+            ))
+
+
 def _apply_cluster(
     cluster: list[Event],
     result: _FusionResult,
@@ -260,14 +297,33 @@ def _apply_cluster(
 
     cluster_id = str(uuid.uuid4())
 
-    # Pick canonical: highest trust then confidence
     def rank(e: Event) -> tuple:
         return (_trust(e.source_id, kind_map), e.confidence, e.date_confidence)
 
+    # ── Manually-edited events win as canonical unconditionally ────────────
+    # A manually_edited event was patched by the user (or pinned by conflict
+    # resolution). Its description, dates, structured, and confidence must
+    # not be overwritten by the LLM result.
+    manually_edited_in_cluster = [e for e in in_cluster if e.manually_edited]
+    if manually_edited_in_cluster:
+        canon_ev = manually_edited_in_cluster[0]
+        canon_ev.cluster_id = cluster_id
+        canon_ev.is_canonical = True
+        for e in in_cluster:
+            if e.id != canon_ev.id:
+                e.cluster_id   = cluster_id
+                e.is_canonical = False
+        for e in split_out:
+            e.cluster_id   = str(uuid.uuid4())
+            e.is_canonical = True
+        # Still record any intra-cluster conflicts the LLM detected
+        _record_intra_conflicts(result, cluster, session_id, db)
+        return
+
+    # ── Normal fusion: LLM picks canonical and edits its fields ───────────
     ranked = sorted(in_cluster, key=rank, reverse=True)
     canon_ev = ranked[0] if ranked else cluster[0]
 
-    # Apply LLM canonical fields
     c = result.canonical
     canon_ev.cluster_id   = cluster_id
     canon_ev.is_canonical = True
@@ -280,8 +336,7 @@ def _apply_cluster(
     if c.confidence:
         canon_ev.confidence = c.confidence
 
-    # Date inheritance fallback: if canonical still has no date, take from any
-    # dated cluster member (prefer highest-trust dated event)
+    # Date inheritance fallback
     if not canon_ev.date_start:
         dated = sorted(
             [e for e in in_cluster if e.date_start and e.id != canon_ev.id],
@@ -294,41 +349,16 @@ def _apply_cluster(
             canon_ev.date_precision  = src.date_precision
             canon_ev.date_confidence = src.date_confidence
 
-    # Mark remaining cluster members non-canonical (kept for provenance)
     for e in in_cluster:
         if e.id != canon_ev.id:
             e.cluster_id   = cluster_id
             e.is_canonical = False
 
-    # Split-out events become isolated singletons
     for e in split_out:
         e.cluster_id   = str(uuid.uuid4())
         e.is_canonical = True
 
-    # Record intra-cluster conflicts
-    id_map = {e.id: e for e in cluster}
-    src_to_ev = {e.source_id: e for e in cluster if e.source_id}
-
-    def resolve(ref: str) -> str | None:
-        if ref in id_map:
-            return ref
-        if ref in src_to_ev:
-            return src_to_ev[ref].id
-        return None
-
-    for fc in result.conflicts:
-        a_id = resolve(fc.event_ref_a)
-        b_id = resolve(fc.event_ref_b)
-        if a_id and b_id and a_id != b_id:
-            db.add(Conflict(
-                id=str(uuid.uuid4()),
-                session_id=session_id,
-                event_a_id=a_id,
-                event_b_id=b_id,
-                conflict_type=fc.conflict_type,
-                detail=fc.detail,
-                resolution='unresolved',
-            ))
+    _record_intra_conflicts(result, cluster, session_id, db)
 
 
 # ── Cross-cluster contradiction pass ──────────────────────────────────────────
@@ -438,14 +468,20 @@ def run_fusion(session_id: str, db: DBSession) -> None:
 
     kind_map = _build_kind_map(events, db)
 
-    # Clear prior fusion state (idempotent)
-    db.query(Conflict).filter(Conflict.session_id == session_id).delete(
-        synchronize_session=False
-    )
+    # Clear prior fusion state — but preserve resolved conflicts so user
+    # resolutions survive re-fusion (only unresolved ones get re-generated).
+    db.query(Conflict).filter(
+        Conflict.session_id == session_id,
+        Conflict.resolution == 'unresolved',
+    ).delete(synchronize_session=False)
+
+    # Reset clustering state for all events. manually_edited events keep their
+    # user-edited content (description, dates, structured) — only cluster
+    # bookkeeping is reset here; _apply_cluster enforces the field preservation.
     for e in events:
-        e.is_canonical = True
-        e.cluster_id = None
-        e.dedup_key = ''
+        e.is_canonical = True   # will be overridden in Steps A/B
+        e.cluster_id = None     # will be assigned in Steps A/B
+        e.dedup_key = ''        # will be recomputed in Step A
     db.flush()
 
     # STEP A: compute dedup keys and group by entity
@@ -473,8 +509,11 @@ def run_fusion(session_id: str, db: DBSession) -> None:
             _apply_cluster(cluster, result, kind_map, session_id, db)
         except Exception as exc:
             logger.error('Fusion LLM failed for cluster (size %d): %s', len(cluster), exc)
-            # Fallback: mark highest-trust/confidence event canonical
-            best = max(cluster, key=lambda e: (_trust(e.source_id, kind_map), e.confidence))
+            # Fallback: manually_edited wins; otherwise highest-trust/confidence
+            manually_edited = [e for e in cluster if e.manually_edited]
+            best = manually_edited[0] if manually_edited else max(
+                cluster, key=lambda e: (_trust(e.source_id, kind_map), e.confidence)
+            )
             cid = str(uuid.uuid4())
             for e in cluster:
                 e.cluster_id   = cid

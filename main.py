@@ -17,6 +17,15 @@ from routers.session import router as session_router
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
+    # Phase 6A migration: add manually_edited column if DB predates this phase
+    from sqlalchemy import inspect as sa_inspect, text
+    with engine.connect() as conn:
+        cols = [c["name"] for c in sa_inspect(engine).get_columns("events")]
+        if "manually_edited" not in cols:
+            conn.execute(text(
+                "ALTER TABLE events ADD COLUMN manually_edited BOOLEAN NOT NULL DEFAULT 0"
+            ))
+            conn.commit()
     os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
     yield
 

@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field, field_validator
 # PHASE 3 (complete): DocumentUploadOut, DocumentOut, DocumentDetailOut
 # PHASE 4 (complete): EventOut, ExtractOut
 # PHASE 5 (complete): CanonicalEventOut, ConflictOut, TimelineOut, ConflictResolveIn
+# PHASE 6A (complete): EventPatchIn, EventPatchOut — manual event edits
 
 _COVERAGE_TOPICS = [
     "chief_complaint",
@@ -59,6 +60,44 @@ class ExtractOut(BaseModel):
     total: int
 
 
+# ── Phase 6A: manual event edits ─────────────────────────────────────────────
+
+class EventPatchIn(BaseModel):
+    """
+    Partial update for a single Event. Only user-editable fields accepted.
+    Fusion-owned fields (dedup_key, cluster_id, is_canonical, event_type,
+    source_id) are silently ignored even if present in the request body.
+    Use model_fields_set to distinguish 'explicitly set to None' from 'omitted'.
+    """
+    description: str | None = None
+    date_start: _date | None = None
+    date_end: _date | None = None
+    date_raw: str | None = None
+    date_precision: str | None = None
+    date_confidence: float | None = None
+    confidence: float | None = None
+    structured: dict | None = None
+
+
+class EventPatchOut(BaseModel):
+    id: str
+    event_type: str
+    description: str
+    date_start: _date | None
+    date_end: _date | None
+    date_raw: str
+    date_precision: str
+    date_confidence: float
+    confidence: float
+    source_id: str | None
+    structured: dict = Field(default_factory=dict)
+    is_canonical: bool
+    cluster_id: str | None
+    manually_edited: bool
+
+    model_config = {"from_attributes": True}
+
+
 class CanonicalEventOut(BaseModel):
     id: str
     event_type: str
@@ -73,7 +112,8 @@ class CanonicalEventOut(BaseModel):
     cluster_size: int = 1
     source_ids: list[str] = Field(default_factory=list)
     structured: dict = Field(default_factory=dict)
-    is_negation: bool = False   # patient denial — kept for contradiction detection only
+    is_negation: bool = False       # patient denial — kept for contradiction detection only
+    manually_edited: bool = False   # user has manually patched this event
 
     model_config = {"from_attributes": True}
 
@@ -96,7 +136,8 @@ class TimelineOut(BaseModel):
 
 
 class ConflictResolveIn(BaseModel):
-    resolution: str   # a_wins | b_wins | both_noted
+    resolution: str                    # a_wins | b_wins | both_noted
+    canonical_choice: str | None = None  # "a" | "b" — applies is_canonical + manually_edited
 
 
 class DocumentUploadOut(BaseModel):

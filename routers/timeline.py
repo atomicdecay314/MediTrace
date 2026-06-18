@@ -9,7 +9,7 @@ from database import SessionLocal, get_db
 from models import Conflict, Event, RawSource, Session
 from schemas import (
     CanonicalEventOut, ConflictOut, ConflictResolveIn,
-    EventOut, ExtractOut, TimelineOut,
+    EventOut, EventPatchIn, EventPatchOut, ExtractOut, TimelineOut,
 )
 from services import extractor, fusion
 
@@ -77,19 +77,74 @@ def extract_events(session_id: str, db: DBSession = Depends(get_db)):
             counts["documents"][source.id] = 0
 
     # ── ATOMIC REPLACE: clear stale data, insert fresh events ──────────
+    # Only delete UNRESOLVED conflicts — resolved conflicts survive re-extraction.
     if reset_from_generated:
-        db.query(Conflict).filter(Conflict.session_id == session_id).delete(
-            synchronize_session=False
-        )
-    db.query(Event).filter(Event.session_id == session_id).delete(
-        synchronize_session=False
-    )
+        db.query(Conflict).filter(
+            Conflict.session_id == session_id,
+            Conflict.resolution == "unresolved",
+        ).delete(synchronize_session=False)
+
+    # Preserve manually_edited events — they survive re-extraction untouched
+    # and will be re-clustered with the fresh events during re-fusion.
+    db.query(Event).filter(
+        Event.session_id == session_id,
+        Event.manually_edited == False,  # noqa: E712
+    ).delete(synchronize_session=False)
+
     for e in new_events:
         db.add(Event(id=str(uuid.uuid4()), **e))
 
     db.commit()
     total = counts["interview"] + sum(counts["documents"].values())
     return ExtractOut(counts=counts, total=total)
+
+
+@router.patch("/{session_id}/events/{event_id}", response_model=EventPatchOut)
+def patch_event(
+    session_id: str,
+    event_id: str,
+    payload: EventPatchIn,
+    db: DBSession = Depends(get_db),
+):
+    """
+    Partially update a single event. Sets manually_edited=True so that
+    re-extraction keeps the event and re-fusion does not overwrite the
+    user's changes.
+
+    Fusion-owned fields (dedup_key, cluster_id, is_canonical, event_type,
+    source_id) are not editable via this endpoint.
+
+    Canonical-edit scope: the edit sticks to this event only, not to other
+    cluster members. Cluster members are raw source events; editing the
+    canonical corrects the merged view without corrupting sources.
+    """
+    event = db.get(Event, event_id)
+    if not event or event.session_id != session_id:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    # Apply only fields the user explicitly included in the request body
+    fs = payload.model_fields_set
+    if "description" in fs and payload.description is not None:
+        event.description = payload.description
+    if "date_start" in fs:
+        event.date_start = payload.date_start
+    if "date_end" in fs:
+        event.date_end = payload.date_end
+    if "date_raw" in fs and payload.date_raw is not None:
+        event.date_raw = payload.date_raw
+    if "date_precision" in fs and payload.date_precision is not None:
+        event.date_precision = payload.date_precision
+    if "date_confidence" in fs and payload.date_confidence is not None:
+        event.date_confidence = payload.date_confidence
+    if "confidence" in fs and payload.confidence is not None:
+        event.confidence = payload.confidence
+    if "structured" in fs and payload.structured is not None:
+        # Merge rather than replace so existing keys (is_negation etc.) aren't lost
+        event.structured = {**(event.structured or {}), **payload.structured}
+
+    event.manually_edited = True
+    db.commit()
+    return EventPatchOut.model_validate(event)
 
 
 @router.get("/{session_id}/events", response_model=list[EventOut])
@@ -207,6 +262,7 @@ def get_timeline(session_id: str, db: DBSession = Depends(get_db)):
             source_ids=list(cluster_srcs.get(cid, set())),
             structured=e.structured or {},
             is_negation=bool((e.structured or {}).get('is_negation', False)),
+            manually_edited=e.manually_edited,
         ))
 
     conflicts = (
@@ -240,11 +296,41 @@ def resolve_conflict(
     payload: ConflictResolveIn,
     db: DBSession = Depends(get_db),
 ):
+    """
+    Resolve a conflict. Optionally declare which event wins as canonical.
+
+    canonical_choice="a"|"b": sets is_canonical on the winner and marks it
+    manually_edited=True so re-fusion preserves the user's canonical choice.
+
+    Resolved conflicts are NOT deleted on re-fusion (run_fusion only deletes
+    resolution='unresolved' rows). The dedup check in _apply_cluster prevents
+    them from being re-created as unresolved. Resolution is permanent.
+    """
     if payload.resolution not in ("a_wins", "b_wins", "both_noted"):
         raise HTTPException(status_code=422, detail="resolution must be a_wins, b_wins, or both_noted")
     conflict = db.get(Conflict, conflict_id)
     if not conflict or conflict.session_id != session_id:
         raise HTTPException(status_code=404, detail="Conflict not found")
+
     conflict.resolution = payload.resolution
+
+    # Apply canonical choice when provided
+    if payload.canonical_choice in ("a", "b"):
+        winner_id = conflict.event_a_id if payload.canonical_choice == "a" else conflict.event_b_id
+        loser_id  = conflict.event_b_id if payload.canonical_choice == "a" else conflict.event_a_id
+        winner = db.get(Event, winner_id)
+        loser  = db.get(Event, loser_id)
+        if winner and loser:
+            if winner.cluster_id and winner.cluster_id == loser.cluster_id:
+                # Same cluster: flip canonical within the cluster
+                winner.is_canonical = True
+                loser.is_canonical  = False
+            # Mark winner manually_edited so re-fusion preserves it as canonical
+            winner.manually_edited = True
+
     db.commit()
-    return {"id": conflict.id, "resolution": conflict.resolution}
+    return {
+        "id": conflict.id,
+        "resolution": conflict.resolution,
+        "canonical_choice": payload.canonical_choice,
+    }
