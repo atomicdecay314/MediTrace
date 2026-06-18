@@ -1235,6 +1235,16 @@ async function runExtract() {
       throw new Error(e.detail || `HTTP ${r1.status}`);
     }
     const summary = await r1.json();
+
+    // If we just re-extracted after a timeline was generated, the backend
+    // reset status to interview_complete and cleared conflicts/canonical flags.
+    // Switch back to raw view so the user sees the fresh events.
+    switchView('raw');
+    fusedList.innerHTML = '<div class="placeholder">Re-extracted — click Generate timeline to fuse.</div>';
+    conflictsSec.innerHTML = '';
+    _tlData = null;
+    btnGenerate.textContent = 'Generate timeline';
+
     const r2 = await fetch(`/api/sessions/${sessionId}/events`);
     const events = await r2.json();
     renderEvents(events);

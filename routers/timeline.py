@@ -17,7 +17,9 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/sessions", tags=["timeline"])
 
-_EXTRACT_STATUSES = {"active", "interview_complete"}
+# Allow re-extraction from any non-processing state so fixes can be re-run.
+# "processing" is the only hard block (a fusion run is in-flight).
+_EXTRACT_STATUSES = {"active", "interview_complete", "timeline_generated", "failed"}
 _GENERATE_STATUSES = {"active", "interview_complete", "processing", "failed", "timeline_generated"}
 
 
@@ -30,6 +32,14 @@ def extract_events(session_id: str, db: DBSession = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Session not found")
     if session.status not in _EXTRACT_STATUSES:
         raise HTTPException(status_code=409, detail="Session is not in an extractable state")
+
+    # If re-extracting after a timeline was generated, invalidate stale fusion
+    # state so a fresh Generate produces a clean result.
+    if session.status == "timeline_generated":
+        db.query(Conflict).filter(Conflict.session_id == session_id).delete(
+            synchronize_session=False
+        )
+        session.status = "interview_complete"
 
     db.query(Event).filter(Event.session_id == session_id).delete(synchronize_session=False)
     db.flush()
