@@ -33,27 +33,35 @@ def extract_events(session_id: str, db: DBSession = Depends(get_db)):
     if session.status not in _EXTRACT_STATUSES:
         raise HTTPException(status_code=409, detail="Session is not in an extractable state")
 
-    # If re-extracting after a timeline was generated, invalidate stale fusion
-    # state so a fresh Generate produces a clean result.
-    if session.status == "timeline_generated":
-        db.query(Conflict).filter(Conflict.session_id == session_id).delete(
-            synchronize_session=False
-        )
+    # Note whether we need to reset fusion state, but do NOT flush yet.
+    # Flushing before extraction expired the session object, making
+    # session.transcript reload unreliably on the second call (SQLite
+    # mid-transaction reload). With autoflush=False we hold all writes
+    # until after extraction is complete.
+    reset_from_generated = session.status == "timeline_generated"
+    if reset_from_generated:
         session.status = "interview_complete"
 
-    db.query(Event).filter(Event.session_id == session_id).delete(synchronize_session=False)
-    db.flush()
-
+    # ── GATHER ALL NEW EVENTS FIRST (no DB writes yet) ─────────────────
+    new_events: list[dict] = []
     counts: dict = {"interview": 0, "documents": {}}
 
+    # Interview — session.transcript is read from the original db.get() load;
+    # no flush has occurred so the object is not expired.
     try:
         interview_events = extractor.extract_from_interview(session)
-        for e in interview_events:
-            db.add(Event(id=str(uuid.uuid4()), **e))
+        new_events.extend(interview_events)
         counts["interview"] = len(interview_events)
+        if not interview_events:
+            n_turns = len(session.transcript or [])
+            logger.warning(
+                "extract_from_interview returned 0 events for session %s "
+                "(transcript has %d turns) — check LLM response", session_id, n_turns
+            )
     except Exception as exc:
         logger.error("Interview extraction failed for session %s: %s", session_id, exc)
 
+    # Documents
     sources = (
         db.query(RawSource)
         .filter(RawSource.session_id == session_id, RawSource.ocr_status == "done")
@@ -62,12 +70,22 @@ def extract_events(session_id: str, db: DBSession = Depends(get_db)):
     for source in sources:
         try:
             doc_events = extractor.extract_from_document(source)
-            for e in doc_events:
-                db.add(Event(id=str(uuid.uuid4()), **e))
+            new_events.extend(doc_events)
             counts["documents"][source.id] = len(doc_events)
         except Exception as exc:
             logger.error("Document extraction failed for source %s: %s", source.id, exc)
             counts["documents"][source.id] = 0
+
+    # ── ATOMIC REPLACE: clear stale data, insert fresh events ──────────
+    if reset_from_generated:
+        db.query(Conflict).filter(Conflict.session_id == session_id).delete(
+            synchronize_session=False
+        )
+    db.query(Event).filter(Event.session_id == session_id).delete(
+        synchronize_session=False
+    )
+    for e in new_events:
+        db.add(Event(id=str(uuid.uuid4()), **e))
 
     db.commit()
     total = counts["interview"] + sum(counts["documents"].values())
