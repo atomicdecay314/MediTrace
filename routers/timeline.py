@@ -206,6 +206,7 @@ def get_timeline(session_id: str, db: DBSession = Depends(get_db)):
             cluster_size=cluster_sizes.get(cid, 1),
             source_ids=list(cluster_srcs.get(cid, set())),
             structured=e.structured or {},
+            is_negation=bool((e.structured or {}).get('is_negation', False)),
         ))
 
     conflicts = (

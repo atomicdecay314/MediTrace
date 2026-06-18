@@ -1386,13 +1386,18 @@ function renderFusedTimeline(data) {
   });
 
   for (const yr of sortedYrs) {
+    // Negation events (patient denials) are kept in evMap for conflict card
+    // descriptions, but they must NOT appear as positive timeline occurrence cards.
+    const positiveEvs = groups.get(yr).filter(ev => !ev.is_negation);
+    if (!positiveEvs.length) continue;
+
     const grp = document.createElement('div');
     grp.className = 'year-group';
     const lbl = document.createElement('div');
     lbl.className = 'year-label';
     lbl.textContent = yr === '?' ? 'Date unknown' : yr;
     grp.appendChild(lbl);
-    for (const ev of groups.get(yr)) {
+    for (const ev of positiveEvs) {
       grp.appendChild(makeCanonicalCard(ev, conflictedIds.has(ev.id)));
     }
     fusedList.appendChild(grp);

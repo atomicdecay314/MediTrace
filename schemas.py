@@ -73,6 +73,7 @@ class CanonicalEventOut(BaseModel):
     cluster_size: int = 1
     source_ids: list[str] = Field(default_factory=list)
     structured: dict = Field(default_factory=dict)
+    is_negation: bool = False   # patient denial — kept for contradiction detection only
 
     model_config = {"from_attributes": True}
 

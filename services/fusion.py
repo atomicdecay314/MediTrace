@@ -90,9 +90,23 @@ def _norm_lab(desc: str) -> str:
 
 
 def _entity_key(e: Event) -> str:
+    struct = e.structured or {}
+
+    # Negation events get their own key space so they never cluster with
+    # the positive events they contradict.
+    if struct.get('is_negation'):
+        if e.event_type == 'Medication':
+            name = struct.get('drug_name') or struct.get('normalized_guess') or e.description
+            return 'neg_med|' + _norm_med(name)
+        return 'neg|' + e.event_type.lower() + '|' + _norm_dx(e.description)
+
     if e.event_type == 'Medication':
-        struct = e.structured or {}
-        name = struct.get('normalized_guess') or struct.get('raw_text') or e.description
+        # normalized_guess is set by extractor for both document and interview meds;
+        # drug_name is the LLM-provided clean name for interview meds.
+        name = (struct.get('normalized_guess') or
+                struct.get('drug_name') or
+                struct.get('raw_text') or
+                e.description)
         return 'med|' + _norm_med(name)
     if e.event_type == 'Diagnosis':
         return 'dx|' + _norm_dx(e.description)
@@ -319,31 +333,61 @@ def _apply_cluster(
 
 # ── Cross-cluster contradiction pass ──────────────────────────────────────────
 
-_CONTRADICT_SYS = (
-    'You detect contradictions in a patient medical record. '
-    'Find cases where an interview statement explicitly NEGATES a documented '
-    'finding (e.g. "never had X" vs documented diagnosis of X, or "stopped Y" '
-    'vs active prescription). Only flag clear, specific contradictions — not '
-    'vague inconsistencies. Return ONLY valid JSON:\n'
-    '{"contradictions":[{"event_ref_a":"<interview event id>",'
-    '"event_ref_b":"<document event id>","detail":"<one-line explanation>"}]}'
-)
+_CONTRADICT_SYS = """You are a clinical contradiction detector. You receive:
+  patient_denials — things the patient explicitly said they do NOT have / never had
+  documented_events — diagnoses and lab results from medical records
+
+Find pairs where what the patient denied clearly contradicts a documented finding.
+Apply clinical synonym reasoning:
+  "cholesterol problems" ↔ dyslipidemia / hyperlipidemia / high LDL / elevated total cholesterol / hypercholesterolemia
+  "heart problems" ↔ CAD / ischemic heart disease / myocardial infarction / angina
+  "kidney problems" ↔ CKD / nephropathy / renal failure
+  "sugar problems" / "blood sugar" ↔ diabetes / hyperglycemia
+  "breathing problems" ↔ COPD / asthma / dyspnea
+
+For each contradiction: cite BOTH the denial AND the specific documented finding.
+For lab results include the value and flag (e.g. "LDL 162 mg/dL [HIGH]").
+
+Return ONLY valid JSON:
+{
+  "contradictions": [
+    {
+      "denial_event_id": "<id from patient_denials>",
+      "documented_event_id": "<id from documented_events>",
+      "detail": "<e.g. Patient denies cholesterol problems; records show Dyslipidemia and LDL 162 mg/dL [HIGH], Total Cholesterol 245 mg/dL [HIGH]>"
+    }
+  ]
+}
+If no contradictions found: {"contradictions": []}"""
 
 
 def _contradiction_pass(canonical: list[Event], session_id: str, db: DBSession) -> None:
-    if not canonical:
+    # Only check patient denials (is_negation=True) against documented positives.
+    # Passing ALL events previously caused the LLM to miss clinical synonym links.
+    negations = [e for e in canonical if (e.structured or {}).get('is_negation')]
+    if not negations:
         return
-    payload = [
-        {
-            'id': e.id,
-            'event_type': e.event_type,
-            'description': e.description,
-            'source_type': 'interview' if not e.source_id else 'document',
-        }
-        for e in canonical
+
+    documented = [
+        e for e in canonical
+        if not (e.structured or {}).get('is_negation')
+        and e.event_type in ('Diagnosis', 'LabResult')
     ]
+    if not documented:
+        return
+
+    payload = {
+        'patient_denials': [
+            {'id': e.id, 'denied_claim': e.description, 'event_type': e.event_type}
+            for e in negations
+        ],
+        'documented_events': [
+            {'id': e.id, 'event_type': e.event_type, 'description': e.description}
+            for e in documented
+        ],
+    }
     try:
-        raw = gemini_client.json_completion(_CONTRADICT_SYS, {'events': payload})
+        raw = gemini_client.json_completion(_CONTRADICT_SYS, payload)
         items = raw.get('contradictions') or []
     except Exception as exc:
         logger.warning('Contradiction pass failed: %s', exc)
@@ -351,10 +395,9 @@ def _contradiction_pass(canonical: list[Event], session_id: str, db: DBSession) 
 
     ev_map = {e.id: e for e in canonical}
     for item in items:
-        a_id = item.get('event_ref_a', '')
-        b_id = item.get('event_ref_b', '')
+        a_id = item.get('denial_event_id', '')
+        b_id = item.get('documented_event_id', '')
         if a_id in ev_map and b_id in ev_map and a_id != b_id:
-            # Skip if already recorded
             existing = db.query(Conflict).filter(
                 Conflict.session_id == session_id,
                 Conflict.event_a_id.in_([a_id, b_id]),

@@ -218,9 +218,17 @@ def extract_from_interview(session) -> list[dict]:
         if not description:
             continue
         date_raw = (e.get("date_raw") or "").strip()
-        structured = e.get("structured") or {}
-        confidence = min(float(e.get("confidence") or 0.6), 0.6)  # cap self-reported
+        is_negation = bool(e.get("is_negation", False))
+        structured = dict(e.get("structured") or {})
+        structured["is_negation"] = is_negation
 
+        # For Medication events: ensure normalized_guess is set so fusion dedup
+        # can match interview drug names against document drug names.
+        if event_type == "Medication" and "normalized_guess" not in structured:
+            drug_name = structured.get("drug_name") or description
+            structured["normalized_guess"] = drug_name.strip().lower()
+
+        confidence = min(float(e.get("confidence") or 0.6), 0.6)  # cap self-reported
         dr = dates_mod.normalize(date_raw) if date_raw else dates_mod.unknown()
         events.append(_base(None, session.id, event_type,
                             description, date_raw, dr, structured, confidence))
