@@ -22,8 +22,8 @@ def interview_turn(
     session = db.get(Session, session_id)
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
-    if session.status != "active":
-        raise HTTPException(status_code=409, detail="Session is not active")
+    if session.status not in ("active", "interview_complete"):
+        raise HTTPException(status_code=409, detail="Session is not accepting interview turns")
 
     if not session.interview_state:
         session.interview_state = init_state()
@@ -57,8 +57,8 @@ async def voice_turn(
     session = db.get(Session, session_id)
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
-    if session.status != "active":
-        raise HTTPException(status_code=409, detail="Session is not active")
+    if session.status not in ("active", "interview_complete"):
+        raise HTTPException(status_code=409, detail="Session is not accepting interview turns")
 
     audio_bytes = await audio.read()
     mime_type = audio.content_type or "audio/webm"

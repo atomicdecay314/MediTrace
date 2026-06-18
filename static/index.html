@@ -450,7 +450,7 @@
       <div id="complete-banner">
         Interview complete — all topics covered.
       </div>
-      <button id="btn-generate-timeline">Generate Timeline (Phase 4)</button>
+      <button id="btn-generate-timeline">Generate Timeline</button>
       <div id="chat-input-row">
         <textarea id="chat-input" rows="2" placeholder="Type your response…"></textarea>
         <button id="btn-mic" title="Click to record">🎤</button>
@@ -605,12 +605,13 @@ function setInputEnabled(enabled) {
 
 // ── Interview complete state ───────────────────────────────
 function markInterviewComplete() {
-  interviewDone = true;
-  setInputEnabled(false);
-  btnMic.disabled = true;
+  interviewDone = false;          // keep input live — patient may add late details
   completeBanner.style.display = 'block';
   btnGenTimeline.style.display = 'block';
-  appendSystem('— Interview complete —');
+  // Hide "end early" button (interview is already complete)
+  btnEnd.style.display = 'none';
+  setInputEnabled(true);          // leave text + mic open for follow-ups
+  appendSystem('— Interview complete — feel free to add anything else —');
 }
 
 // ── Voice recording ────────────────────────────────────────
