@@ -364,6 +364,23 @@
     }
     .cluster-hint { font-size: .65rem; color: #94a3b8; margin-top: .15rem; }
 
+    /* ── Confidence badge ── */
+    .conf-badge {
+      font-size: .58rem; font-weight: 700; letter-spacing: .04em;
+      padding: .1rem .38rem; border-radius: 999px;
+      text-transform: uppercase; white-space: nowrap; flex-shrink: 0;
+    }
+    .conf-high { background: #dcfce7; color: #166534; }  /* green — same as "covered" */
+    .conf-mid  { background: #fef3c7; color: #92400e; }  /* amber — same as vague date */
+    .conf-low  { background: #fee2e2; color: #991b1b; }  /* red — same as conflict badge */
+
+    /* ── Re-extract hint banner ── */
+    .reextract-hint {
+      margin: .4rem .5rem 0; padding: .45rem .65rem;
+      background: #eff6ff; border: 1px solid #bfdbfe;
+      border-radius: 6px; font-size: .76rem; color: #1d4ed8; line-height: 1.4;
+    }
+
     .year-group { margin-bottom: .75rem; }
     .year-label {
       font-size: .68rem; font-weight: 700; letter-spacing: .1em;
@@ -481,7 +498,7 @@
       </div>
     </div>
 
-    <!-- Raw events view (Phase 4, default) -->
+    <!-- Raw events view -->
     <div id="view-raw" class="tl-view">
       <div id="events-list">
         <div class="placeholder">Run "Extract" after the interview or uploading documents.</div>
@@ -989,6 +1006,23 @@ async function refreshDocList() {
   } catch (_) { /* silent */ }
 }
 
+// Re-extract hint: shown when a new document finishes OCR after a timeline
+// already exists, so the user knows to re-extract and regenerate.
+function showReextractHint() {
+  if (document.getElementById('reextract-hint') || !_tlData) return;
+  const hint = document.createElement('div');
+  hint.id = 'reextract-hint';
+  hint.className = 'reextract-hint';
+  hint.innerHTML =
+    '📄 New document processed — click <strong>Extract</strong> then ' +
+    '<strong>Generate</strong> to fold it into the timeline.';
+  docList.before(hint);
+}
+
+function clearReextractHint() {
+  document.getElementById('reextract-hint')?.remove();
+}
+
 function startPolling() {
   if (pollTimer) return;
   pollTimer = setInterval(async () => {
@@ -1000,6 +1034,8 @@ function startPolling() {
     if (!docs.some(d => d.ocr_status === 'pending')) {
       clearInterval(pollTimer);
       pollTimer = null;
+      // If a timeline already exists, hint that re-extraction is needed
+      showReextractHint();
     }
   }, 2000);
 }
@@ -1116,6 +1152,10 @@ const TYPE_LABELS = {
   Symptom: 'Symptom', Consultation: 'Consultation',
 };
 
+// Confidence band thresholds — adjust here to recalibrate all badges.
+// high >= HIGH → green, MID <= x < HIGH → amber, < MID → red.
+const CONF = { HIGH: 0.8, MID: 0.5 };
+
 function formatEventDate(ev) {
   const vague = ev.date_confidence < 0.5;
   let label = '';
@@ -1134,6 +1174,15 @@ function formatEventDate(ev) {
     label = 'Unknown date';
   }
   return { label, vague };
+}
+
+function makeConfBadge(confidence) {
+  const b = document.createElement('span');
+  b.className = 'conf-badge';
+  if (confidence >= CONF.HIGH)      { b.classList.add('conf-high'); b.textContent = 'High'; }
+  else if (confidence >= CONF.MID)  { b.classList.add('conf-mid');  b.textContent = 'Mid';  }
+  else                               { b.classList.add('conf-low');  b.textContent = 'Low';  }
+  return b;
 }
 
 function yearOf(ev) {
@@ -1226,6 +1275,7 @@ function renderEvents(events) {
 
 async function runExtract() {
   if (!sessionId) return;
+  clearReextractHint();   // dismiss the "re-extract needed" hint
   btnExtract.disabled = true;
   btnExtract.textContent = 'Extracting…';
   try {
@@ -1438,6 +1488,9 @@ function makeCanonicalCard(ev, hasConflict) {
   dateEl.className = 'event-date' + (vague ? ' vague' : '');
   dateEl.textContent = label;
   meta.appendChild(dateEl);
+
+  // Confidence badge (read-only — reflects stored confidence)
+  meta.appendChild(makeConfBadge(ev.confidence));
 
   // Cluster hint
   if (ev.cluster_size > 1) {
