@@ -189,28 +189,85 @@ async def generate_timeline(
     background_tasks: BackgroundTasks,
     db: DBSession = Depends(get_db),
 ):
+    """
+    Phase 6B guard decisions:
+
+    P1 — Interview-only (no docs): VALID. A voice/text intake alone is legitimate.
+    P2 — Docs-only (no interview): VALID. extract_from_interview returns [] cleanly.
+    P1+P2 — Truly empty (no interview turns AND no done docs): 422 — not a 500 or
+         silent empty timeline.
+    P3 — Pending OCR: 409 naming the pending files. "Pending" = ocr_status=='pending'
+         on any RawSource. Error-status sources are excluded (they just don't
+         contribute to the timeline).
+    P4 — Retryability: fusion runs in its own transaction; on failure it rolls back
+         all cluster/conflict writes and sets status='failed'. Events from the last
+         successful extraction are preserved. The caller can safely retry generate.
+         A status=='processing' guard prevents duplicate concurrent runs.
+    """
     session = db.get(Session, session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    # Guard: no pending OCR
-    pending = (
-        db.query(RawSource)
-        .filter(RawSource.session_id == session_id, RawSource.ocr_status == "pending")
-        .all()
-    )
-    if pending:
+    # P4: deduplicate concurrent generate requests
+    if session.status == "processing":
         raise HTTPException(
             status_code=409,
-            detail={"error": "Documents still processing", "pending_sources": [s.id for s in pending]},
+            detail="Timeline generation is already in progress — wait for it to finish",
         )
 
-    # Guard: events must exist
+    # P3: pending OCR — generating from partial data would produce a misleading result
+    pending_sources = (
+        db.query(RawSource)
+        .filter(
+            RawSource.session_id == session_id,
+            RawSource.ocr_status == "pending",
+        )
+        .all()
+    )
+    if pending_sources:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error": "Documents are still being processed — wait for OCR to complete",
+                "pending_sources": [
+                    {"id": s.id, "filename": s.filename or "(unnamed)"}
+                    for s in pending_sources
+                ],
+            },
+        )
+
+    # P1+P2: distinguish "truly empty session" (422) from "has content but not
+    # yet extracted" (409).  A session has content if it has at least one
+    # patient-turn in the transcript OR at least one successfully OCR'd document.
+    has_interview_turns = any(
+        t.get("role") == "user" for t in (session.transcript or [])
+    )
+    done_doc_count = (
+        db.query(RawSource)
+        .filter(
+            RawSource.session_id == session_id,
+            RawSource.ocr_status == "done",
+        )
+        .count()
+    )
+    if not has_interview_turns and done_doc_count == 0:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "Nothing to generate from: no interview has been conducted "
+                "and no documents have been successfully processed."
+            ),
+        )
+
+    # Content exists but /events/extract has not been run yet (or produced nothing)
     event_count = db.query(Event).filter(Event.session_id == session_id).count()
     if event_count == 0:
         raise HTTPException(
             status_code=409,
-            detail={"error": "No events to fuse — run extraction first."},
+            detail=(
+                "No events found — run POST /events/extract first "
+                "to extract events from the interview and/or documents."
+            ),
         )
 
     session.status = "processing"
