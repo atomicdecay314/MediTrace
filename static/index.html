@@ -443,6 +443,111 @@
     .event-date.vague { color: var(--amber); }    /* amber: unified warning/attention */
     .event-src  { font-size: .65rem; color: var(--text-subtle); margin-left: auto; }
 
+    /* ── Phase 6D-B: Timeline event card ───────────────── */
+    #fused-events-list { position: relative; padding: .5rem .5rem; }
+    /* Vertical timeline line through all events */
+    #fused-events-list::before {
+      content: ''; position: absolute;
+      left: 22px; top: .75rem; bottom: .75rem;
+      width: 1px; background: var(--border); pointer-events: none;
+    }
+    .tl-ev-wrap {
+      display: flex; align-items: flex-start; gap: .55rem;
+      margin-bottom: .55rem; position: relative; z-index: 1;
+    }
+    .tl-dot {
+      width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0;
+      background: var(--primary); border: 3px solid var(--surface-card);
+      margin-top: .72rem; box-sizing: border-box;
+    }
+    .tl-dot-mid { background: var(--border-active); }
+    .tl-dot-dim { background: var(--surface-highest); }
+    .tl-ev-card {
+      flex: 1; background: var(--surface-raised); border: 1px solid var(--border);
+      border-radius: 8px; padding: .6rem .7rem; transition: border-color .15s;
+    }
+    .tl-ev-card:hover { border-color: var(--border-active); }
+    .tl-ev-card.tl-ev-flagged { border-color: var(--amber-border); }
+    .tl-ev-date {
+      font-size: .67rem; color: var(--text-subtle);
+      font-family: ui-monospace, monospace; margin-bottom: .22rem;
+    }
+    .tl-ev-date.vague { color: var(--amber); }
+    .tl-ev-title-row { display: flex; align-items: flex-start; gap: .4rem; margin-bottom: .3rem; }
+    .tl-ev-title { font-size: .82rem; font-weight: 600; color: var(--text); flex: 1; line-height: 1.3; }
+    .tl-ev-indicators { display: flex; align-items: center; gap: .45rem; flex-wrap: wrap; margin-bottom: .22rem; }
+    .tl-ev-merged { font-size: .68rem; color: var(--text-subtle); font-style: italic; }
+    .tl-ev-src-chips { display: flex; gap: .3rem; flex-wrap: wrap; }
+    .tl-year-group { margin-bottom: .35rem; }
+    .tl-year-label {
+      font-size: .63rem; font-weight: 700; letter-spacing: .12em;
+      text-transform: uppercase; color: var(--text-subtle);
+      padding: .55rem 0 .25rem 1.85rem;
+    }
+
+    /* ── Phase 6D-B: Conflict card ──────────────────────── */
+    .cf-section-hdr {
+      font-size: .67rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .1em; color: var(--amber); padding: .4rem .6rem .25rem;
+    }
+    .cf-card {
+      background: var(--amber-dim); border: 1px solid var(--amber-border);
+      border-radius: 8px; padding: .6rem .7rem; margin: 0 .5rem .45rem;
+    }
+    .cf-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: .3rem; }
+    .cf-type-label {
+      font-size: .64rem; font-weight: 700; color: var(--amber);
+      text-transform: uppercase; letter-spacing: .07em;
+    }
+    .cf-action { font-size: .65rem; color: var(--text-subtle); }
+    .cf-resolved-status { font-size: .65rem; color: #6ee7b7; }
+    .cf-detail { font-size: .75rem; color: var(--text-muted); margin-bottom: .4rem; line-height: 1.4; }
+    .cf-sources { display: flex; flex-direction: column; gap: .2rem; margin-bottom: .4rem; }
+    .cf-src-row {
+      display: flex; justify-content: space-between; align-items: center;
+      background: var(--surface-raised); border-radius: 4px; padding: .25rem .45rem; gap: .5rem;
+    }
+    .cf-src-lbl { font-size: .68rem; color: var(--text-subtle); flex-shrink: 0; white-space: nowrap; }
+    .cf-src-val {
+      font-size: .7rem; color: var(--text); font-weight: 500;
+      text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .cf-src-val--interview { color: var(--primary); }
+    .cf-resolve-actions { display: flex; gap: .3rem; flex-wrap: wrap; }
+
+    /* ── Phase 6D-B: Document card ──────────────────────── */
+    .doc-card {
+      background: var(--surface-raised); border: 1px solid var(--border);
+      border-radius: 8px; padding: .6rem .65rem; margin-bottom: .4rem;
+      cursor: pointer; transition: background .15s, border-color .15s;
+    }
+    .doc-card:hover { background: var(--surface-high); border-color: var(--border-active); }
+    .doc-card-pending { border-left: 3px solid var(--amber); }
+    .doc-card-error   { border-left: 3px solid #f87171; }
+    .doc-card-inner { display: flex; align-items: flex-start; gap: .55rem; }
+    .doc-card-icon { font-size: 1rem; flex-shrink: 0; line-height: 1; margin-top: .1rem; }
+    .doc-card-info { flex: 1; min-width: 0; }
+    .doc-card-name {
+      font-size: .78rem; font-weight: 500; color: var(--text);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: .2rem;
+    }
+    .doc-card-status-row { display: flex; align-items: center; gap: .35rem; }
+    .doc-card-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+    .doc-card-dot--done       { background: var(--primary); }
+    .doc-card-dot--pending    { background: var(--amber); animation: spin-chip 1.5s linear infinite; }
+    .doc-card-dot--error      { background: #f87171; }
+    .doc-card-dot--unreadable { background: var(--amber); }
+    .doc-card-status-text {
+      font-size: .65rem; font-weight: 600; text-transform: uppercase;
+      letter-spacing: .06em; color: var(--text-subtle);
+    }
+    .doc-card-reupload {
+      background: none; border: none; color: var(--text-subtle);
+      cursor: pointer; font-size: .78rem; padding: .1rem .2rem;
+      border-radius: 4px; flex-shrink: 0; align-self: center;
+    }
+    .doc-card-reupload:hover { color: var(--primary); }
+
     /* ── Toast ── */
     #toast {
       position: fixed; bottom: 1.25rem; left: 50%;
@@ -593,11 +698,12 @@ function showToast(msg, isError = false) {
 // ── Coverage strip ─────────────────────────────────────────
 function renderCoverage(coverageMap) {
   coverageStrip.innerHTML = '';
+  const icons = { covered: '✓ ', partial: '◑ ', uncovered: '' };
   for (const [topic, status] of Object.entries(coverageMap)) {
     const pill = document.createElement('span');
     pill.className = `pill pill-${status}`;
     pill.title = `${TOPIC_LABELS[topic] ?? topic}: ${status}`;
-    pill.textContent = TOPIC_LABELS[topic] ?? topic;
+    pill.textContent = (icons[status] ?? '') + (TOPIC_LABELS[topic] ?? topic);
     coverageStrip.appendChild(pill);
   }
 }
@@ -991,33 +1097,51 @@ function renderDocList(docs) {
     docList.innerHTML = '<div class="doc-empty">No documents yet.</div>';
     return;
   }
+  const STATUS_LABELS = { done: 'Processed', pending: 'OCR Pending', error: 'Error', unreadable: 'Unreadable' };
   for (const doc of docs) {
     const item = document.createElement('div');
-    item.className = 'doc-item';
+    item.className = 'doc-card' +
+      (doc.ocr_status === 'pending' ? ' doc-card-pending' :
+       doc.ocr_status === 'error'   ? ' doc-card-error'   : '');
     item.dataset.status = doc.ocr_status;
 
-    item.appendChild(makeChip(doc.ocr_status));
+    const inner = document.createElement('div');
+    inner.className = 'doc-card-inner';
 
-    const name = document.createElement('span');
-    name.className = 'doc-name';
-    name.textContent = doc.filename || doc.kind;
-    name.title = doc.filename || '';
-    item.appendChild(name);
+    // File type icon
+    const icon = document.createElement('span');
+    icon.className = 'doc-card-icon';
+    icon.textContent = doc.kind === 'pdf_typed' ? '📄' : '🖼️';
+    inner.appendChild(icon);
 
-    const kind = document.createElement('span');
-    kind.className = 'doc-kind';
-    kind.textContent = doc.kind === 'pdf_typed' ? 'PDF' : 'IMG';
-    item.appendChild(kind);
+    // Info: filename + status
+    const info = document.createElement('div');
+    info.className = 'doc-card-info';
+    const fname = document.createElement('p');
+    fname.className = 'doc-card-name';
+    fname.textContent = doc.filename || doc.kind;
+    fname.title = doc.filename || '';
+    info.appendChild(fname);
+    const statusRow = document.createElement('div');
+    statusRow.className = 'doc-card-status-row';
+    const dot = document.createElement('span');
+    dot.className = `doc-card-dot doc-card-dot--${doc.ocr_status}`;
+    const statusText = document.createElement('span');
+    statusText.className = 'doc-card-status-text';
+    statusText.textContent = STATUS_LABELS[doc.ocr_status] || doc.ocr_status;
+    statusRow.appendChild(dot); statusRow.appendChild(statusText);
+    info.appendChild(statusRow);
+    inner.appendChild(info);
 
+    // Re-upload affordance for failed docs
     if (doc.ocr_status === 'error' || doc.ocr_status === 'unreadable') {
       const reup = document.createElement('button');
-      reup.className = 'doc-reupload';
-      reup.title = 'Re-upload';
-      reup.textContent = '↑';
-      reup.onclick = (e) => { e.stopPropagation(); fileInput.click(); };
-      item.appendChild(reup);
+      reup.className = 'doc-card-reupload';
+      reup.title = 'Re-upload'; reup.textContent = '↑';
+      reup.onclick = e => { e.stopPropagation(); fileInput.click(); };
+      inner.appendChild(reup);
     }
-
+    item.appendChild(inner);
     item.addEventListener('click', () => openAudit(doc.source_id));
     docList.appendChild(item);
   }
@@ -1440,7 +1564,7 @@ function renderFusedTimeline(data) {
   conflictsSec.innerHTML = '';
   if (data.conflicts.length) {
     const hdr = document.createElement('div');
-    hdr.style.cssText = 'font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#991b1b;padding:.4rem .6rem .1rem;';
+    hdr.className = 'cf-section-hdr';
     hdr.textContent = `⚠ ${data.conflicts.length} conflict${data.conflicts.length > 1 ? 's' : ''}`;
     conflictsSec.appendChild(hdr);
     data.conflicts.forEach(c => conflictsSec.appendChild(makeConflictCard(c, data.events)));
@@ -1471,9 +1595,9 @@ function renderFusedTimeline(data) {
     if (!positiveEvs.length) continue;
 
     const grp = document.createElement('div');
-    grp.className = 'year-group';
+    grp.className = 'tl-year-group';
     const lbl = document.createElement('div');
-    lbl.className = 'year-label';
+    lbl.className = 'tl-year-label';
     lbl.textContent = yr === '?' ? 'Date unknown' : yr;
     grp.appendChild(lbl);
     for (const ev of positiveEvs) {
@@ -1484,136 +1608,152 @@ function renderFusedTimeline(data) {
 }
 
 function makeCanonicalCard(ev, hasConflict) {
+  // Timeline wrapper: dot + card side-by-side
+  const wrap = document.createElement('div');
+  wrap.className = 'tl-ev-wrap';
+
+  // Dot colour driven by real confidence value
+  const dot = document.createElement('div');
+  dot.className = 'tl-dot' +
+    (ev.confidence >= CONF.HIGH ? '' :
+     ev.date_start              ? ' tl-dot-mid' : ' tl-dot-dim');
+  wrap.appendChild(dot);
+
+  // Card
   const card = document.createElement('div');
-  card.className = 'event-card';
-  if (hasConflict) card.style.borderColor = '#fca5a5';
+  card.className = 'tl-ev-card' + (hasConflict ? ' tl-ev-flagged' : '');
 
-  const top = document.createElement('div');
-  top.className = 'event-card-top';
+  // Date line — monospace, amber when vague
+  const { label, vague } = formatEventDate(ev);
+  const dateEl = document.createElement('p');
+  dateEl.className = 'tl-ev-date' + (vague ? ' vague' : '');
+  dateEl.textContent = label;
+  card.appendChild(dateEl);
 
+  // Event-type badge + title
+  const titleRow = document.createElement('div');
+  titleRow.className = 'tl-ev-title-row';
   const badge = document.createElement('span');
   badge.className = `event-badge badge-${ev.event_type}`;
-  badge.textContent = ev.event_type;
-
-  const desc = document.createElement('div');
-  desc.className = 'event-desc';
-  desc.textContent = ev.description;
-
+  badge.textContent = TYPE_LABELS[ev.event_type] || ev.event_type;
+  const title = document.createElement('h5');
+  title.className = 'tl-ev-title';
+  title.textContent = ev.description;
+  titleRow.appendChild(badge);
+  titleRow.appendChild(title);
   if (hasConflict) {
     const flag = document.createElement('span');
     flag.className = 'event-flag'; flag.textContent = '⚠';
-    flag.title = 'Conflict detected — see conflicts section';
-    top.appendChild(badge); top.appendChild(desc); top.appendChild(flag);
-  } else {
-    top.appendChild(badge); top.appendChild(desc);
+    flag.title = 'Conflict — see above'; titleRow.appendChild(flag);
   }
-  card.appendChild(top);
+  card.appendChild(titleRow);
 
-  // Date
-  const { label, vague } = formatEventDate(ev);
-  const meta = document.createElement('div');
-  meta.className = 'event-meta';
-  const dateEl = document.createElement('span');
-  dateEl.className = 'event-date' + (vague ? ' vague' : '');
-  dateEl.textContent = label;
-  meta.appendChild(dateEl);
-
-  // Confidence badge (read-only — reflects stored confidence)
-  meta.appendChild(makeConfBadge(ev.confidence));
-
-  // Cluster hint
+  // Indicators: confidence badge (read-only) + "N sources merged"
+  const indicators = document.createElement('div');
+  indicators.className = 'tl-ev-indicators';
+  indicators.appendChild(makeConfBadge(ev.confidence));
   if (ev.cluster_size > 1) {
-    const hint = document.createElement('span');
-    hint.className = 'cluster-hint';
-    hint.textContent = `${ev.cluster_size} sources merged`;
-    meta.appendChild(hint);
+    const merged = document.createElement('span');
+    merged.className = 'tl-ev-merged';
+    // Count driven by real cluster_size from CanonicalEventOut
+    merged.textContent = `${ev.cluster_size} sources merged`;
+    indicators.appendChild(merged);
   }
-  card.appendChild(meta);
+  card.appendChild(indicators);
 
-  // Source chips
+  // Source chips (doc vs interview, driven by real source_ids)
+  const chips = document.createElement('div');
+  chips.className = 'tl-ev-src-chips';
   if (ev.source_ids && ev.source_ids.length) {
-    const srcs = document.createElement('div');
-    srcs.className = 'event-sources';
     ev.source_ids.forEach(sid => {
-      const chip = document.createElement('span');
-      chip.className = 'src-chip';
-      chip.textContent = '📄';
-      chip.title = sid;
-      srcs.appendChild(chip);
+      const c = document.createElement('span');
+      c.className = 'src-chip'; c.textContent = '📄 doc'; c.title = sid;
+      chips.appendChild(c);
     });
-    if (!ev.source_ids.length) {  // interview only
-      const chip = document.createElement('span');
-      chip.className = 'src-chip'; chip.textContent = '💬 interview';
-      srcs.appendChild(chip);
-    }
-    card.appendChild(srcs);
   } else {
-    const srcs = document.createElement('div');
-    srcs.className = 'event-sources';
-    const chip = document.createElement('span');
-    chip.className = 'src-chip'; chip.textContent = '💬 interview';
-    srcs.appendChild(chip);
-    card.appendChild(srcs);
+    const c = document.createElement('span');
+    c.className = 'src-chip'; c.textContent = '💬 interview';
+    chips.appendChild(c);
   }
+  card.appendChild(chips);
 
-  return card;
+  wrap.appendChild(card);
+  return wrap;
 }
 
 function makeConflictCard(conflict, allEvents) {
+  // allEvents includes negation events (is_negation=true) which are needed
+  // here for source labelling even though they're excluded from the timeline.
   const evMap = Object.fromEntries(allEvents.map(e => [e.id, e]));
   const evA = evMap[conflict.event_a_id];
   const evB = evMap[conflict.event_b_id];
 
   const card = document.createElement('div');
-  card.className = 'conflict-card';
+  card.className = 'cf-card';
   card.dataset.conflictId = conflict.id;
 
+  // Header: conflict type + status (Action Required or Resolved)
   const hdr = document.createElement('div');
-  hdr.className = 'conflict-header';
-  const typeBadge = document.createElement('span');
-  typeBadge.className = 'conflict-type-badge';
-  typeBadge.textContent = conflict.conflict_type.replace(/_/g, ' ');
-  const detail = document.createElement('span');
-  detail.className = 'conflict-detail';
-  detail.textContent = conflict.detail;
-  hdr.appendChild(typeBadge); hdr.appendChild(detail);
+  hdr.className = 'cf-hdr';
+  const typeLabel = document.createElement('span');
+  typeLabel.className = 'cf-type-label';
+  // Real conflict_type from backend (date_mismatch | dose_mismatch | value_mismatch | contradiction)
+  typeLabel.textContent = conflict.conflict_type.replace(/_/g, ' ').toUpperCase();
+  hdr.appendChild(typeLabel);
+  const statusEl = document.createElement('span');
+  if (conflict.resolution !== 'unresolved') {
+    statusEl.className = 'cf-resolved-status';
+    statusEl.textContent = `✓ ${conflict.resolution.replace(/_/g, ' ')}`;
+  } else {
+    statusEl.className = 'cf-action';
+    statusEl.textContent = 'Action Required';
+  }
+  hdr.appendChild(statusEl);
   card.appendChild(hdr);
 
-  // Event pair
-  const evPair = document.createElement('div');
-  evPair.className = 'conflict-events';
-  [evA, evB].forEach((ev, i) => {
-    const box = document.createElement('div');
-    box.className = 'conflict-ev';
+  // Full detail text from backend (includes specific values/evidence)
+  const detailEl = document.createElement('p');
+  detailEl.className = 'cf-detail';
+  detailEl.textContent = conflict.detail;
+  card.appendChild(detailEl);
+
+  // Two-source comparison rows, driven by real event data
+  const srcBox = document.createElement('div');
+  srcBox.className = 'cf-sources';
+  [evA, evB].forEach(ev => {
+    if (!ev) return;
+    const row = document.createElement('div');
+    row.className = 'cf-src-row';
+    // Source label derived from real source_ids (empty = interview, non-empty = document)
+    const isInterview = !ev.source_ids || ev.source_ids.length === 0;
     const lbl = document.createElement('span');
-    lbl.className = 'conflict-ev-label';
-    lbl.textContent = i === 0 ? 'Source A' : 'Source B';
-    box.appendChild(lbl);
-    box.appendChild(document.createTextNode(ev ? ev.description : '(unknown)'));
-    evPair.appendChild(box);
+    lbl.className = 'cf-src-lbl';
+    lbl.textContent = isInterview ? '💬 Interview' : '📄 Record';
+    // Value: truncated real description
+    const val = document.createElement('span');
+    val.className = 'cf-src-val' + (isInterview ? ' cf-src-val--interview' : '');
+    const desc = ev.description || '(unknown)';
+    val.textContent = desc.length > 58 ? desc.slice(0, 58) + '…' : desc;
+    val.title = desc;
+    row.appendChild(lbl); row.appendChild(val);
+    srcBox.appendChild(row);
   });
-  card.appendChild(evPair);
+  card.appendChild(srcBox);
 
-  // Resolution buttons
-  const actions = document.createElement('div');
-  actions.className = 'conflict-actions';
-
-  if (conflict.resolution !== 'unresolved') {
-    const resolved = document.createElement('span');
-    resolved.className = 'conflict-resolved-label';
-    resolved.textContent = `✓ Resolved: ${conflict.resolution.replace(/_/g, ' ')}`;
-    actions.appendChild(resolved);
-  } else {
-    [['a_wins', 'A is correct'], ['b_wins', 'B is correct'], ['both_noted', 'Note both']].forEach(([val, label]) => {
+  // Resolution actions (only when unresolved)
+  if (conflict.resolution === 'unresolved') {
+    const actions = document.createElement('div');
+    actions.className = 'cf-resolve-actions';
+    [['a_wins', 'A correct'], ['b_wins', 'B correct'], ['both_noted', 'Note both']].forEach(([val, lbl]) => {
       const btn = document.createElement('button');
       btn.className = 'conflict-resolve-btn';
       if (conflict.resolution === val) btn.classList.add('active');
-      btn.textContent = label;
+      btn.textContent = lbl;
       btn.onclick = () => resolveConflict(conflict.id, val, card);
       actions.appendChild(btn);
     });
+    card.appendChild(actions);
   }
-  card.appendChild(actions);
   return card;
 }
 
