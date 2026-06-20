@@ -9,27 +9,88 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <style>
-    /* ── Design tokens (Stitch reference palette) ─────────────────────── */
+    /* ── Design tokens — dark theme (default) ──────────────────────────── */
     :root {
-      --bg:              #09090b;   /* body / outer background */
-      --surface:         #131315;   /* topbar, panel headers, input trays */
-      --surface-card:    #18181b;   /* panel body / bento card */
-      --surface-raised:  #201f22;   /* inset elements, assistant bubbles */
+      --bg:              #09090b;
+      --surface:         #131315;
+      --surface-card:    #18181b;
+      --surface-raised:  #201f22;
       --surface-high:    #2a2a2c;
-      --surface-highest: #353437;   /* kbd, subtle highlights */
-      --border:          #27272a;   /* standard dividers */
-      --border-active:   #424754;   /* hover / focus borders */
-      --text:            #e5e1e4;   /* on-surface */
-      --text-muted:      #c2c6d6;   /* on-surface-variant */
-      --text-subtle:     #8c909f;   /* placeholder / label */
+      --surface-highest: #353437;
+      --border:          #27272a;
+      --border-active:   #424754;
+      --text:            #e5e1e4;
+      --text-muted:      #c2c6d6;
+      --text-subtle:     #8c909f;
       --primary:         #adc6ff;   /* accent blue */
-      --primary-on:      #002e6a;   /* text on primary bg */
+      --primary-on:      #002e6a;
       --primary-dim:     rgba(173,198,255,.12);
       --primary-border:  rgba(173,198,255,.25);
-      /* Amber — sole warning/attention colour: vague dates, conflicts, mid-confidence */
+      /* Amber — sole warning/attention: vague dates, conflicts, mid-confidence */
       --amber:           #fbbf24;
       --amber-dim:       rgba(251,191,36,.12);
       --amber-border:    rgba(251,191,36,.30);
+      /* Semantic colours — sweeping out hardcoded literals */
+      --green:           #6ee7b7;   /* resolved / processed / done */
+      --green-dim:       rgba(52,211,153,.15);
+      --red:             #f87171;   /* error / low-confidence */
+      --red-dim:         rgba(239,68,68,.12);
+      --red-border:      rgba(239,68,68,.9);
+      /* Event-type badge colours */
+      --badge-dx-bg:     rgba(239,68,68,.15);   --badge-dx-fg:    #f87171;
+      --badge-med-bg:    rgba(96,165,250,.15);   --badge-med-fg:   #93c5fd;
+      --badge-lab-bg:    rgba(52,211,153,.15);   --badge-lab-fg:   #6ee7b7;
+      --badge-surg-bg:   rgba(251,191,36,.15);   --badge-surg-fg:  #fcd34d;
+      --badge-hosp-bg:   rgba(167,139,250,.15);  --badge-hosp-fg:  #c4b5fd;
+      --badge-symp-bg:   rgba(253,224,71,.15);   --badge-symp-fg:  #fde68a;
+      --badge-cons-bg:   rgba(148,163,184,.15);  --badge-cons-fg:  #94a3b8;
+      /* Modal backdrop */
+      --backdrop:        rgba(0,0,0,.65);
+      /* Toast error */
+      --toast-err-bg:    rgba(239,68,68,.9);
+      --toast-err-fg:    #ffffff;
+    }
+
+    /* ── Light theme palette ────────────────────────────────────────────── */
+    /* Clean clinical light palette — NOT a naive inversion.                  */
+    /* Amber is deepened to #d97706 so conflict cards remain strong on white. */
+    /* Primary deepened to #1d4ed8 for WCAG-safe contrast on white surfaces.  */
+    [data-theme="light"] {
+      --bg:              #f0f4f8;
+      --surface:         #ffffff;
+      --surface-card:    #f8fafc;
+      --surface-raised:  #f1f5f9;
+      --surface-high:    #e2e8f0;
+      --surface-highest: #cbd5e1;
+      --border:          #e2e8f0;
+      --border-active:   #94a3b8;
+      --text:            #0f172a;
+      --text-muted:      #334155;
+      --text-subtle:     #64748b;
+      --primary:         #1d4ed8;   /* deepened for contrast on white */
+      --primary-on:      #ffffff;
+      --primary-dim:     rgba(29,78,216,.08);
+      --primary-border:  rgba(29,78,216,.22);
+      /* Amber deepened: most critical legibility requirement in this phase.    */
+      /* #d97706 (amber-700) reads strongly on white; dim keeps tinted fill.   */
+      --amber:           #d97706;
+      --amber-dim:       rgba(217,119,6,.10);
+      --amber-border:    rgba(217,119,6,.35);
+      --green:           #059669;
+      --green-dim:       rgba(5,150,105,.12);
+      --red:             #dc2626;
+      --red-dim:         rgba(220,38,38,.10);
+      --red-border:      rgba(220,38,38,.85);
+      --badge-dx-bg:     rgba(220,38,38,.10);   --badge-dx-fg:    #b91c1c;
+      --badge-med-bg:    rgba(29,78,216,.10);    --badge-med-fg:   #1d4ed8;
+      --badge-lab-bg:    rgba(5,150,105,.10);    --badge-lab-fg:   #047857;
+      --badge-surg-bg:   rgba(217,119,6,.10);    --badge-surg-fg:  #b45309;
+      --badge-hosp-bg:   rgba(109,40,217,.10);   --badge-hosp-fg:  #6d28d9;
+      --badge-symp-bg:   rgba(161,98,7,.10);     --badge-symp-fg:  #92400e;
+      --badge-cons-bg:   rgba(71,85,105,.10);    --badge-cons-fg:  #475569;
+      --backdrop:        rgba(0,0,0,.4);
+      --toast-err-bg:    rgba(220,38,38,.9);
+      --toast-err-fg:    #ffffff;
     }
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -59,6 +120,25 @@
     }
     #topbar h1 { font-size: 1rem; font-weight: 700; letter-spacing: -.01em; flex: 1; color: var(--primary); }
     #session-label { font-size: .72rem; color: var(--text-subtle); font-family: ui-monospace, 'JetBrains Mono', monospace; }
+    /* ── Theme toggle (sun ↔ moon morph) ── */
+    #btn-theme {
+      background: none; border: 1px solid var(--border); border-radius: 8px;
+      width: 34px; height: 34px; cursor: pointer; position: relative;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-subtle); transition: border-color .2s, color .2s;
+      overflow: hidden; flex-shrink: 0;
+    }
+    #btn-theme:hover { border-color: var(--border-active); color: var(--text); }
+    #icon-sun, #icon-moon {
+      position: absolute; transition: transform .35s ease, opacity .35s ease;
+    }
+    /* Dark mode default: show sun (offer switch to light), hide moon */
+    :root #icon-sun  { transform: rotate(0deg)  scale(1);   opacity: 1; }
+    :root #icon-moon { transform: rotate(90deg) scale(.5);  opacity: 0; }
+    /* Light mode: show moon (offer switch to dark), hide sun */
+    [data-theme="light"] #icon-sun  { transform: rotate(-90deg) scale(.5); opacity: 0; }
+    [data-theme="light"] #icon-moon { transform: rotate(0deg)   scale(1);  opacity: 1; }
+
     #btn-new-session {
       background: var(--primary); color: var(--primary-on); border: none;
       border-radius: 20px; padding: .35rem .9rem;
@@ -198,8 +278,8 @@
       animation: pulse-mic .8s ease infinite;
     }
     @keyframes pulse-mic {
-      0%, 100% { box-shadow: 0 0 0 0 rgba(251,191,36,.3); }
-      50%       { box-shadow: 0 0 0 5px rgba(251,191,36,0); }
+      0%, 100% { box-shadow: 0 0 0 0 var(--amber-border); }
+      50%       { box-shadow: 0 0 0 5px transparent; }
     }
 
     #btn-end-interview {
@@ -263,9 +343,9 @@
       display: flex; align-items: center; justify-content: center; flex-shrink: 0;
     }
     .chip-pending    { background: var(--surface-high); color: var(--text-subtle); animation: spin-chip 1.5s linear infinite; }
-    .chip-done       { background: rgba(52,211,153,.15); color: #6ee7b7; }
+    .chip-done       { background: var(--green-dim); color: var(--green); }
     .chip-unreadable { background: var(--amber-dim); color: var(--amber); }
-    .chip-error      { background: rgba(239,68,68,.15); color: #f87171; }
+    .chip-error      { background: var(--red-dim); color: var(--red); }
     @keyframes spin-chip { to { transform: rotate(360deg); } }
 
     .doc-reupload {
@@ -281,12 +361,12 @@
       display: flex; align-items: center; justify-content: center;
     }
     .modal.hidden { display: none; }
-    .modal-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.65); }
+    .modal-backdrop { position: absolute; inset: 0; background: var(--backdrop); }
     .modal-box {
       position: relative; background: var(--surface-card); border-radius: 12px;
       width: min(90vw, 680px); max-height: 82vh;
       display: flex; flex-direction: column; overflow: hidden;
-      box-shadow: 0 20px 60px rgba(0,0,0,.6); border: 1px solid var(--border);
+      box-shadow: 0 20px 60px var(--backdrop); border: 1px solid var(--border);
     }
     .modal-header {
       display: flex; align-items: center; gap: .5rem;
@@ -364,7 +444,7 @@
     .conflict-type-badge {
       font-size: .6rem; font-weight: 700; text-transform: uppercase;
       padding: .12rem .4rem; border-radius: 999px; white-space: nowrap;
-      background: rgba(251,191,36,.25); color: var(--amber);
+      background: var(--amber-border); color: var(--amber);
     }
     .conflict-detail { font-size: .77rem; color: var(--text-muted); flex: 1; }
     .conflict-events { display: flex; gap: .4rem; margin-bottom: .4rem; }
@@ -381,7 +461,7 @@
     }
     .conflict-resolve-btn:hover { background: var(--surface-high); }
     .conflict-resolve-btn.active { background: var(--primary-dim); color: var(--primary); border-color: var(--primary-border); }
-    .conflict-resolved-label { font-size: .7rem; color: #6ee7b7; font-style: italic; }
+    .conflict-resolved-label { font-size: .7rem; color: var(--green); font-style: italic; }
 
     /* Canonical event extras */
     .event-flag { color: var(--amber); font-size: .75rem; flex-shrink: 0; }
@@ -400,7 +480,7 @@
     }
     .conf-high { background: var(--primary-dim);          color: var(--primary); }
     .conf-mid  { background: var(--amber-dim);            color: var(--amber); }   /* same amber as vague dates */
-    .conf-low  { background: rgba(239,68,68,.12);         color: #f87171; }
+    .conf-low  { background: var(--red-dim);              color: var(--red); }
 
     /* ── Re-extract hint banner ── */
     .reextract-hint {
@@ -428,14 +508,14 @@
       text-transform: uppercase; padding: .15rem .45rem;
       border-radius: 999px; white-space: nowrap; flex-shrink: 0;
     }
-    /* Dark-adapted type badges */
-    .badge-Diagnosis      { background: rgba(239,68,68,.15);   color: #f87171; }
-    .badge-Medication     { background: rgba(96,165,250,.15);   color: #93c5fd; }
-    .badge-LabResult      { background: rgba(52,211,153,.15);   color: #6ee7b7; }
-    .badge-Surgery        { background: rgba(251,191,36,.15);   color: #fcd34d; }
-    .badge-Hospitalization{ background: rgba(167,139,250,.15);  color: #c4b5fd; }
-    .badge-Symptom        { background: rgba(253,224,71,.15);   color: #fde68a; }
-    .badge-Consultation   { background: rgba(148,163,184,.15);  color: #94a3b8; }
+    /* Type badges — driven by semantic palette vars (light/dark override together) */
+    .badge-Diagnosis      { background: var(--badge-dx-bg);   color: var(--badge-dx-fg); }
+    .badge-Medication     { background: var(--badge-med-bg);  color: var(--badge-med-fg); }
+    .badge-LabResult      { background: var(--badge-lab-bg);  color: var(--badge-lab-fg); }
+    .badge-Surgery        { background: var(--badge-surg-bg); color: var(--badge-surg-fg); }
+    .badge-Hospitalization{ background: var(--badge-hosp-bg); color: var(--badge-hosp-fg); }
+    .badge-Symptom        { background: var(--badge-symp-bg); color: var(--badge-symp-fg); }
+    .badge-Consultation   { background: var(--badge-cons-bg); color: var(--badge-cons-fg); }
 
     .event-desc { font-size: .8rem; color: var(--text); flex: 1; line-height: 1.4; }
     .event-meta { display: flex; gap: .5rem; margin-top: .25rem; align-items: center; }
@@ -500,7 +580,7 @@
       text-transform: uppercase; letter-spacing: .07em;
     }
     .cf-action { font-size: .65rem; color: var(--text-subtle); }
-    .cf-resolved-status { font-size: .65rem; color: #6ee7b7; }
+    .cf-resolved-status { font-size: .65rem; color: var(--green); }
     .cf-detail { font-size: .75rem; color: var(--text-muted); margin-bottom: .4rem; line-height: 1.4; }
     .cf-sources { display: flex; flex-direction: column; gap: .2rem; margin-bottom: .4rem; }
     .cf-src-row {
@@ -523,7 +603,7 @@
     }
     .doc-card:hover { background: var(--surface-high); border-color: var(--border-active); }
     .doc-card-pending { border-left: 3px solid var(--amber); }
-    .doc-card-error   { border-left: 3px solid #f87171; }
+    .doc-card-error   { border-left: 3px solid var(--red); }
     .doc-card-inner { display: flex; align-items: flex-start; gap: .55rem; }
     .doc-card-icon { font-size: 1rem; flex-shrink: 0; line-height: 1; margin-top: .1rem; }
     .doc-card-info { flex: 1; min-width: 0; }
@@ -535,7 +615,7 @@
     .doc-card-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
     .doc-card-dot--done       { background: var(--primary); }
     .doc-card-dot--pending    { background: var(--amber); animation: spin-chip 1.5s linear infinite; }
-    .doc-card-dot--error      { background: #f87171; }
+    .doc-card-dot--error      { background: var(--red); }
     .doc-card-dot--unreadable { background: var(--amber); }
     .doc-card-status-text {
       font-size: .65rem; font-weight: 600; text-transform: uppercase;
@@ -558,7 +638,7 @@
       pointer-events: none; z-index: 100;
     }
     #toast.show  { transform: translateX(-50%) translateY(0); }
-    #toast.error { background: rgba(239,68,68,.9); border-color: #f87171; color: #fff; }
+    #toast.error { background: var(--toast-err-bg); border-color: var(--red); color: var(--toast-err-fg); }
   </style>
 </head>
 <body>
@@ -566,6 +646,26 @@
 <div id="topbar">
   <h1>MediTrace</h1>
   <span id="session-label">Starting session…</span>
+  <button id="btn-theme" title="Toggle theme" aria-label="Toggle theme">
+    <!-- sun icon (shown in dark mode → click to switch to light) -->
+    <svg id="icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none"
+         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="5"/>
+      <line x1="12" y1="1" x2="12" y2="3"/>
+      <line x1="12" y1="21" x2="12" y2="23"/>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+      <line x1="1" y1="12" x2="3" y2="12"/>
+      <line x1="21" y1="12" x2="23" y2="12"/>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+    </svg>
+    <!-- moon icon (shown in light mode → click to switch to dark) -->
+    <svg id="icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none"
+         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </svg>
+  </button>
   <button id="btn-new-session">New Session</button>
 </div>
 
@@ -1804,6 +1904,32 @@ btnGenerate.addEventListener('click', runGenerate);
 // Enable generate button once we have a session
 function _enableGenerate() { if (sessionId) btnGenerate.disabled = false; }
 
+// ── Theme toggle ───────────────────────────────────────────
+const btnTheme = document.getElementById('btn-theme');
+const ROOT     = document.documentElement;
+
+function applyTheme(theme) {
+  ROOT.setAttribute('data-theme', theme);
+  localStorage.setItem('meditrace-theme', theme);
+}
+
+function initTheme() {
+  const stored = localStorage.getItem('meditrace-theme');
+  if (stored === 'light' || stored === 'dark') {
+    applyTheme(stored);
+  } else {
+    // First load: respect OS preference
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    applyTheme(prefersDark ? 'dark' : 'light');
+  }
+}
+
+btnTheme.addEventListener('click', () => {
+  const current = ROOT.getAttribute('data-theme') || 'dark';
+  applyTheme(current === 'dark' ? 'light' : 'dark');
+});
+
+initTheme();
 boot();
 </script>
 </body>
