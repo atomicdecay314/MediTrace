@@ -52,6 +52,7 @@ OUTPUT FORMAT:
       "description": "<factual description; for negations: 'Patient denies [thing denied]'>",
       "date_raw": "<verbatim date phrase or null>",
       "is_negation": <true or false>,
+      "source_turn": "<copy the EXACT Patient utterance text this event was derived from — do not paraphrase or truncate>",
       "structured": {
         "negated_claim": "<for negations only: the denied thing WITHOUT 'Patient denies' prefix>",
         "drug_name": "<for Medication only: clean drug name>"

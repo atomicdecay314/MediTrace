@@ -21,17 +21,24 @@ OUTPUT FORMAT:
       "value": "<result value as a string, exactly as printed>",
       "unit": "<unit string or null>",
       "reference_range": "<range string exactly as printed, or null>",
-      "flag": "<H|L|HH|LL|CRITICAL|PANIC|A|null — use the flag shown in the document>"
+      "flag": "<H|L|HH|LL|CRITICAL|PANIC|A|null — use the flag shown in the document>",
+      "source_text": "<verbatim line or span from the document this row was extracted from, exactly as printed>"
     }
   ],
-  "diagnoses": ["<diagnosis or ICD code exactly as written>"],
+  "diagnoses": [
+    {
+      "text": "<diagnosis or ICD code exactly as written>",
+      "source_text": "<verbatim line or phrase from the document where this diagnosis appears>"
+    }
+  ],
   "medications": [
     {
       "drug_name": "<drug name exactly as printed, or null>",
       "strength": "<e.g. '500 mg', '40mg', or null>",
       "dose": "<amount per administration, e.g. '1 tab', '5 ml', or null>",
       "frequency": "<frequency as printed, e.g. 'OD', 'BD', 'TDS', or null>",
-      "duration": "<treatment duration as written, or null>"
+      "duration": "<treatment duration as written, or null>",
+      "source_text": "<verbatim line or span from the document this row was extracted from, exactly as printed>"
     }
   ],
   "summary_impression": "<overall impression, conclusion, or assessment text, or null>",

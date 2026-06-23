@@ -320,6 +320,7 @@ def get_timeline(session_id: str, db: DBSession = Depends(get_db)):
             structured=e.structured or {},
             is_negation=bool((e.structured or {}).get('is_negation', False)),
             manually_edited=e.manually_edited,
+            source_snippet=e.source_snippet,
         ))
 
     conflicts = (

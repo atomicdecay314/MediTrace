@@ -26,6 +26,10 @@ async def lifespan(app: FastAPI):
                 "ALTER TABLE events ADD COLUMN manually_edited BOOLEAN NOT NULL DEFAULT 0"
             ))
             conn.commit()
+        # Phase 7A migration: provenance capture
+        if "source_snippet" not in cols:
+            conn.execute(text("ALTER TABLE events ADD COLUMN source_snippet TEXT"))
+            conn.commit()
     os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
     yield
 

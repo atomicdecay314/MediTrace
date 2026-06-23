@@ -85,6 +85,7 @@ class Event(Base):
     structured: Mapped[dict] = mapped_column(JSON, default=dict)
     confidence: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     manually_edited: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    source_snippet: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
     session: Mapped["Session"] = relationship("Session", back_populates="events")

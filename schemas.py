@@ -51,6 +51,7 @@ class EventOut(BaseModel):
     confidence: float
     source_id: str | None
     structured: dict = Field(default_factory=dict)
+    source_snippet: str | None = None
 
     model_config = {"from_attributes": True}
 
@@ -94,6 +95,7 @@ class EventPatchOut(BaseModel):
     is_canonical: bool
     cluster_id: str | None
     manually_edited: bool
+    source_snippet: str | None = None
 
     model_config = {"from_attributes": True}
 
@@ -114,6 +116,7 @@ class CanonicalEventOut(BaseModel):
     structured: dict = Field(default_factory=dict)
     is_negation: bool = False       # patient denial — kept for contradiction detection only
     manually_edited: bool = False   # user has manually patched this event
+    source_snippet: str | None = None
 
     model_config = {"from_attributes": True}
 

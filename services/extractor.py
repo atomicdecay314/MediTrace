@@ -43,7 +43,8 @@ def _is_null_value(v: Any) -> bool:
 
 def _base(source_id: str | None, session_id: str, event_type: str,
           description: str, date_raw: str, date_result: dict,
-          structured: dict, confidence: float) -> dict:
+          structured: dict, confidence: float,
+          source_snippet: str | None = None) -> dict:
     return {
         "session_id": session_id,
         "source_id": source_id,
@@ -59,6 +60,7 @@ def _base(source_id: str | None, session_id: str, event_type: str,
         "is_canonical": True,
         "dedup_key": "",
         "cluster_id": None,
+        "source_snippet": source_snippet or None,
     }
 
 
@@ -97,8 +99,11 @@ def _from_prescription(meta: dict, session_id: str, source_id: str) -> list[dict
         structured = {k: m.get(k) for k in
                       ("raw_text", "normalized_guess", "strength", "dose",
                        "frequency", "duration", "legibility")}
+        # raw_text is the verbatim prescription line — promote it as provenance
+        snippet = m.get("raw_text") or None
         events.append(_base(source_id, session_id, "Medication",
-                            desc, date_raw, dr, structured, conf))
+                            desc, date_raw, dr, structured, conf,
+                            source_snippet=snippet))
 
     for dx in meta.get("diagnoses") or []:
         if not dx or _is_null_value(dx):
@@ -145,13 +150,22 @@ def _from_typed_doc(meta: dict, extracted_text: str, session_id: str, source_id:
         structured = {k: t.get(k) for k in
                       ("name", "value", "unit", "reference_range", "flag")}
         events.append(_base(source_id, session_id, "LabResult",
-                            desc, date_raw, dr, structured, 0.85))
+                            desc, date_raw, dr, structured, 0.85,
+                            source_snippet=t.get("source_text") or None))
 
     for dx in meta.get("diagnoses") or []:
-        if not dx or _is_null_value(dx):
+        # Diagnoses may be a plain string (old OCR cache) or {"text":..., "source_text":...} (new prompt)
+        if isinstance(dx, dict):
+            dx_text = dx.get("text") or ""
+            dx_snippet = dx.get("source_text") or None
+        else:
+            dx_text = dx or ""
+            dx_snippet = None
+        if not dx_text or _is_null_value(dx_text):
             continue
         events.append(_base(source_id, session_id, "Diagnosis",
-                            dx, date_raw, dr, {"source": "typed_document"}, 0.80))
+                            dx_text, date_raw, dr, {"source": "typed_document"}, 0.80,
+                            source_snippet=dx_snippet))
 
     # Medications — present in meta when document was OCR'd with updated ocr_typed.txt,
     # OR recovered via LLM fallback for existing prescriptions OCR'd with the old prompt.
@@ -175,7 +189,8 @@ def _from_typed_doc(meta: dict, extracted_text: str, session_id: str, source_id:
             "duration": m.get("duration"),
         }
         events.append(_base(source_id, session_id, "Medication",
-                            desc, date_raw, dr, structured, 0.85))
+                            desc, date_raw, dr, structured, 0.85,
+                            source_snippet=m.get("source_text") or None))
 
     return events
 
@@ -228,6 +243,7 @@ def extract_from_interview(session) -> list[dict]:
             continue
         date_raw = (e.get("date_raw") or "").strip()
         is_negation = bool(e.get("is_negation", False))
+        source_snippet = (e.get("source_turn") or "").strip() or None
         structured = dict(e.get("structured") or {})
 
         # ── Defensive negation repair ──────────────────────────────────────
@@ -266,6 +282,7 @@ def extract_from_interview(session) -> list[dict]:
         confidence = min(float(e.get("confidence") or 0.6), 0.6)  # cap self-reported
         dr = dates_mod.normalize(date_raw) if date_raw else dates_mod.unknown()
         events.append(_base(None, session.id, event_type,
-                            description, date_raw, dr, structured, confidence))
+                            description, date_raw, dr, structured, confidence,
+                            source_snippet=source_snippet))
 
     return events
