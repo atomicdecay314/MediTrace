@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from config import settings
 from database import Base, engine
 from routers.documents import router as documents_router
+from routers.patients import router as patients_router
 from routers.timeline import router as timeline_router
 from routers.interview import router as interview_router
 from routers.session import router as session_router
@@ -30,6 +31,11 @@ async def lifespan(app: FastAPI):
         if "source_snippet" not in cols:
             conn.execute(text("ALTER TABLE events ADD COLUMN source_snippet TEXT"))
             conn.commit()
+        # Phase 8 migration: patient FK on sessions
+        sess_cols = [c["name"] for c in sa_inspect(engine).get_columns("sessions")]
+        if "patient_id" not in sess_cols:
+            conn.execute(text("ALTER TABLE sessions ADD COLUMN patient_id TEXT REFERENCES patients(id)"))
+            conn.commit()
     os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
     yield
 
@@ -44,6 +50,7 @@ app.add_middleware(
 )
 
 app.include_router(session_router)
+app.include_router(patients_router)
 app.include_router(interview_router)
 app.include_router(documents_router)
 app.include_router(timeline_router)

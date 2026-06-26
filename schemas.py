@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field, field_validator
 # PHASE 4 (complete): EventOut, ExtractOut
 # PHASE 5 (complete): CanonicalEventOut, ConflictOut, TimelineOut, ConflictResolveIn
 # PHASE 6A (complete): EventPatchIn, EventPatchOut — manual event edits
+# PHASE 7B (complete): ProvenanceMemberOut
 
 _COVERAGE_TOPICS = [
     "chief_complaint",
@@ -21,8 +22,29 @@ _COVERAGE_TOPICS = [
 ]
 
 
+# ── Phase 8: Patient system ────────────────────────────────────────────────────
+
+class PatientCreate(BaseModel):
+    name: str
+    age: int | None = None
+    sex: str | None = None     # free string — "M" / "F" / "Other" / custom
+
+
+class PatientOut(BaseModel):
+    id: str
+    name: str
+    age: int | None
+    sex: str | None
+    created_at: str            # ISO-8601 UTC
+    latest_session_id: str | None = None
+
+
 class SessionCreate(BaseModel):
-    patient_label: str | None = None
+    patient_label: str | None = None   # legacy field; kept for backwards compat
+    # Phase 8: patient identity fields (when provided, a Patient row is created)
+    name: str | None = None
+    age: int | None = None
+    sex: str | None = None
 
 
 class SessionOut(BaseModel):
@@ -32,6 +54,11 @@ class SessionOut(BaseModel):
     interview_state: dict
     transcript: list
     counts: dict  # {sources: int, events: int, conflicts: int}
+    # Phase 8: patient identity (null-safe for pre-Phase-8 sessions)
+    patient_id: str | None = None
+    patient_name: str | None = None
+    patient_age: int | None = None
+    patient_sex: str | None = None
 
     model_config = {"from_attributes": True}
 
@@ -141,6 +168,42 @@ class TimelineOut(BaseModel):
 class ConflictResolveIn(BaseModel):
     resolution: str                    # a_wins | b_wins | both_noted
     canonical_choice: str | None = None  # "a" | "b" — applies is_canonical + manually_edited
+
+
+# ── Phase 7C: Clinical summary ────────────────────────────────────────────────
+
+class SummarySectionEntryOut(BaseModel):
+    """One cited clinical claim inside a summary section."""
+    text: str
+    event_ids: list[str]  # canonical event IDs from the timeline that back this claim
+
+
+class SummarySectionOut(BaseModel):
+    """One category block in the summary (e.g. 'Active Conditions')."""
+    heading: str
+    entries: list[SummarySectionEntryOut]
+
+
+class SummaryOut(BaseModel):
+    """Full clinical summary response — narrative + provenance map."""
+    sections: list[SummarySectionOut]
+    conflicts_note: str                              # prose, empty string if no conflicts
+    data_quality_note: str                           # caveats about vague dates / low confidence
+    citations: dict[str, list["ProvenanceMemberOut"]]  # event_id → cluster members
+    generated_at: str                                # ISO-8601 UTC timestamp
+
+
+class ProvenanceMemberOut(BaseModel):
+    """One cluster member returned by GET /events/{id}/provenance."""
+    event_id: str
+    is_canonical: bool
+    source_id: str | None
+    source_kind: str | None    # None when source is interview
+    source_label: str | None   # RawSource.filename, or None
+    source_snippet: str | None
+    is_negation: bool
+    confidence: float
+    description: str
 
 
 class DocumentUploadOut(BaseModel):

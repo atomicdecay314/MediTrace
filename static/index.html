@@ -147,6 +147,72 @@
     #btn-new-session:hover { opacity: .85; }
     #btn-new-session:disabled { background: var(--surface-high); color: var(--text-subtle); cursor: not-allowed; }
 
+    /* ── Patients button (Phase 8) ── */
+    #btn-patients {
+      background: none; border: 1px solid var(--border); border-radius: 20px;
+      padding: .35rem .9rem; font-size: .78rem; font-weight: 600;
+      color: var(--text-muted); cursor: pointer; transition: border-color .2s, color .2s;
+    }
+    #btn-patients:hover { border-color: var(--border-active); color: var(--text); }
+
+    /* ── Phase 8: New-session form modal ── */
+    #np-modal .modal-box { width: min(90vw, 380px); }
+    .np-field { margin-bottom: .85rem; }
+    .np-field label {
+      display: block; font-size: .72rem; font-weight: 600;
+      color: var(--text-muted); margin-bottom: .3rem;
+    }
+    .np-required { color: var(--red); }
+    .np-field input, .np-field select {
+      width: 100%; padding: .45rem .65rem;
+      background: var(--bg); color: var(--text);
+      border: 1px solid var(--border); border-radius: 7px;
+      font-size: .88rem; font-family: inherit;
+    }
+    .np-field input:focus, .np-field select:focus {
+      outline: none; border-color: var(--primary);
+    }
+    .np-field input::placeholder { color: var(--text-subtle); }
+    .np-actions {
+      display: flex; gap: .5rem; justify-content: flex-end; margin-top: 1rem;
+    }
+    .np-btn-cancel {
+      background: none; border: 1px solid var(--border); border-radius: 7px;
+      padding: .42rem .85rem; font-size: .82rem; font-family: inherit;
+      color: var(--text-muted); cursor: pointer;
+    }
+    .np-btn-cancel:hover { border-color: var(--border-active); color: var(--text); }
+    .np-btn-submit {
+      background: var(--primary); color: var(--primary-on); border: none;
+      border-radius: 7px; padding: .42rem .9rem;
+      font-size: .82rem; font-weight: 700; font-family: inherit; cursor: pointer;
+      transition: opacity .15s;
+    }
+    .np-btn-submit:hover { opacity: .85; }
+    .np-btn-submit:disabled { opacity: .5; cursor: not-allowed; }
+
+    /* ── Phase 8: Patients list modal ── */
+    #pts-modal .modal-box { width: min(90vw, 460px); }
+    .pts-empty { color: var(--text-subtle); font-size: .85rem; padding: .5rem 0; }
+    .pt-row {
+      display: flex; align-items: center; gap: .6rem;
+      padding: .6rem .65rem; border-radius: 8px; margin-bottom: .35rem;
+      background: var(--surface-raised); border: 1px solid var(--border);
+      transition: background .12s, border-color .12s;
+    }
+    .pt-row-clickable {
+      cursor: pointer;
+    }
+    .pt-row-clickable:hover  { background: var(--surface-high); border-color: var(--border-active); }
+    .pt-row-clickable:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+    .pt-info { flex: 1; min-width: 0; }
+    .pt-name { font-size: .85rem; font-weight: 600; color: var(--text); display: block; }
+    .pt-meta { font-size: .72rem; color: var(--text-subtle); display: block; margin-top: .05rem; }
+    .pt-resume-hint {
+      font-size: .68rem; color: var(--primary); white-space: nowrap; flex-shrink: 0;
+    }
+    .pt-no-session { font-size: .68rem; color: var(--text-subtle); flex-shrink: 0; }
+
     /* ── Three-panel grid (reference: 1/4 · flex-1 · 1/4, outer padding+gap) ── */
     #panels {
       display: grid;
@@ -566,10 +632,29 @@
     }
 
     /* ── Phase 6D-B: Conflict card ──────────────────────── */
-    .cf-section-hdr {
+    /* Collapsible toggle header (replaces static .cf-section-hdr) */
+    .cf-toggle-hdr {
+      /* Reset button defaults */
+      background: none; border: none; font-family: inherit;
+      /* Layout */
+      display: flex; align-items: center; gap: .35rem; width: 100%;
+      padding: .4rem .6rem .3rem;
+      /* Type */
       font-size: .67rem; font-weight: 700; text-transform: uppercase;
-      letter-spacing: .1em; color: var(--amber); padding: .4rem .6rem .25rem;
+      letter-spacing: .1em; color: var(--amber);
+      cursor: pointer; user-select: none;
     }
+    .cf-toggle-hdr:focus-visible {
+      outline: 2px solid var(--amber); outline-offset: -2px; border-radius: 4px;
+    }
+    .cf-chevron {
+      margin-left: auto; flex-shrink: 0; display: inline-block;
+      transition: transform .2s ease; font-style: normal; line-height: 1;
+    }
+    .cf-toggle-hdr[aria-expanded="true"] .cf-chevron { transform: rotate(180deg); }
+    /* Cards container — hidden by default, shown when .open is added */
+    .cf-cards-body          { display: none; }
+    .cf-cards-body.open     { display: block; }
     .cf-card {
       background: var(--amber-dim); border: 1px solid var(--amber-border);
       border-radius: 8px; padding: .6rem .7rem; margin: 0 .5rem .45rem;
@@ -628,6 +713,167 @@
     }
     .doc-card-reupload:hover { color: var(--primary); }
 
+    /* ── Phase 7C: Clinical summary button ──────────────────────── */
+    #btn-summary {
+      background: var(--green-dim); color: var(--green);
+      border: 1px solid rgba(52,211,153,.28); border-radius: 6px;
+      padding: .32rem .7rem; font-size: .78rem; font-weight: 600;
+      cursor: pointer; transition: opacity .15s; font-family: inherit;
+    }
+    #btn-summary:hover:not(:disabled) { opacity: .8; }
+    #btn-summary:disabled {
+      background: var(--surface-high); color: var(--text-subtle);
+      border-color: transparent; cursor: not-allowed;
+    }
+    [data-theme="light"] #btn-summary {
+      background: var(--green-dim); border-color: rgba(5,150,105,.22);
+    }
+
+    /* Summary modal */
+    #summary-modal .modal-box { width: min(92vw, 720px); }
+
+    /* Section headings */
+    .summ-section { margin-bottom: 1.1rem; }
+    .summ-section-hdr {
+      font-size: .63rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .1em; color: var(--text-subtle);
+      padding-bottom: .28rem; margin-bottom: .55rem;
+      border-bottom: 1px solid var(--border);
+    }
+    /* Individual claim entry */
+    .summ-entry { margin-bottom: .7rem; padding-left: .55rem;
+      border-left: 2px solid var(--border); }
+    .summ-entry-text {
+      font-size: .84rem; color: var(--text); line-height: 1.5; margin-bottom: .28rem;
+    }
+    /* Citation chips row + snippet */
+    .summ-cit-row { display: flex; flex-wrap: wrap; gap: .28rem; margin-bottom: .2rem; }
+    .summ-snippet {
+      font-size: .72rem; color: var(--text-subtle); font-style: italic;
+      border-left: 2px solid var(--primary-border); padding-left: .4rem;
+      margin-top: .12rem; line-height: 1.45;
+    }
+    /* Callout boxes */
+    .summ-callout {
+      padding: .55rem .75rem; border-radius: 8px;
+      font-size: .8rem; line-height: 1.5; margin-bottom: .8rem;
+    }
+    .summ-callout-hdr { font-weight: 700; display: block; margin-bottom: .2rem; }
+    .summ-callout-conflict {
+      background: var(--amber-dim); border: 1px solid var(--amber-border); color: var(--amber);
+    }
+    .summ-callout-quality {
+      background: var(--surface-raised); border: 1px solid var(--border); color: var(--text-subtle);
+    }
+    /* Loading / error states inside modal */
+    .summ-loading {
+      display: flex; align-items: center; justify-content: center;
+      min-height: 7rem; color: var(--text-subtle); font-size: .85rem;
+    }
+    .summ-error {
+      padding: .65rem .75rem; border-radius: 8px;
+      background: var(--red-dim); border: 1px solid var(--red-border);
+      color: var(--red); font-size: .82rem; line-height: 1.4;
+    }
+    /* Generated-at footer */
+    .summ-footer {
+      font-size: .65rem; color: var(--text-subtle);
+      margin-top: .75rem; padding-top: .5rem; border-top: 1px solid var(--border);
+      font-family: ui-monospace, monospace;
+    }
+    /* "Try again" button inside error state */
+    .summ-retry-btn {
+      display: block; margin-top: .55rem;
+      background: none; border: 1px solid var(--red-border); border-radius: 6px;
+      color: var(--red); padding: .3rem .75rem; font-size: .78rem;
+      font-family: inherit; cursor: pointer; transition: background .15s;
+    }
+    .summ-retry-btn:hover { background: var(--red-dim); }
+
+    /* ── Phase 7B: Provenance panel ─────────────────────────────── */
+    /* Make both fused and raw event cards interactive */
+    .tl-ev-card  { cursor: pointer; }
+    .event-card  { cursor: pointer; }
+    .tl-ev-card:focus-visible,
+    .event-card:focus-visible {
+      outline: 2px solid var(--primary); outline-offset: 2px;
+    }
+
+    /* Provenance modal width override */
+    #prov-modal .modal-box { width: min(90vw, 520px); }
+
+    /* Member cards inside provenance body */
+    .prov-member {
+      background: var(--surface-raised); border: 1px solid var(--border);
+      border-radius: 8px; padding: .65rem .75rem; margin-bottom: .5rem;
+    }
+    .prov-member.prov-canonical {
+      border-color: var(--primary-border); background: var(--primary-dim);
+    }
+    .prov-member-header {
+      display: flex; align-items: center; gap: .35rem; flex-wrap: wrap;
+      margin-bottom: .32rem;
+    }
+    /* Source-kind chip */
+    .prov-kind-chip {
+      font-size: .62rem; font-weight: 600; padding: .1rem .42rem;
+      border-radius: 999px; white-space: nowrap;
+    }
+    .prov-kind-interview {
+      background: var(--primary-dim); color: var(--primary);
+      border: 1px solid var(--primary-border);
+    }
+    .prov-kind-doc {
+      background: var(--green-dim); color: var(--green);
+      border: 1px solid rgba(52,211,153,.28);
+    }
+    [data-theme="light"] .prov-kind-doc { border-color: rgba(5,150,105,.25); }
+    /* Small tags: Primary / Patient denial */
+    .prov-tag {
+      font-size: .58rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .06em; padding: .09rem .36rem; border-radius: 999px;
+      white-space: nowrap;
+    }
+    .prov-tag-primary {
+      background: var(--primary-dim); color: var(--primary);
+      border: 1px solid var(--primary-border);
+    }
+    .prov-tag-denial {
+      background: var(--red-dim); color: var(--red);
+      border: 1px solid rgba(239,68,68,.28);
+    }
+    [data-theme="light"] .prov-tag-denial { border-color: rgba(220,38,38,.25); }
+    /* Member description */
+    .prov-member-desc {
+      font-size: .8rem; font-weight: 500; color: var(--text); margin-bottom: .2rem;
+    }
+    /* Filename / source label */
+    .prov-member-label {
+      font-size: .68rem; color: var(--text-subtle);
+      margin-bottom: .2rem; font-family: ui-monospace, monospace;
+    }
+    /* Verbatim snippet — quoted, italic, left-accented */
+    .prov-snippet {
+      font-size: .78rem; color: var(--text-muted); font-style: italic;
+      line-height: 1.5; border-left: 2px solid var(--primary-border);
+      padding-left: .5rem; margin-top: .12rem;
+    }
+    /* Placeholder for missing snippets */
+    .prov-snippet-null {
+      font-size: .7rem; color: var(--text-subtle);
+      font-style: italic; margin-top: .12rem;
+    }
+    /* Inline error inside modal body */
+    .prov-error {
+      padding: .65rem .75rem; border-radius: 8px;
+      background: var(--red-dim); border: 1px solid var(--red-border);
+      font-size: .82rem; color: var(--red); line-height: 1.4;
+    }
+    /* Subtitle showing member count */
+    .prov-subtitle {
+      font-size: .7rem; color: var(--text-subtle); margin-bottom: .65rem;
+    }
+
     /* ── Toast ── */
     #toast {
       position: fixed; bottom: 1.25rem; left: 50%;
@@ -666,6 +912,7 @@
       <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
     </svg>
   </button>
+  <button id="btn-patients" title="Browse patients">Patients</button>
   <button id="btn-new-session">New Session</button>
 </div>
 
@@ -720,6 +967,7 @@
     <div id="tl-toolbar">
       <button id="btn-extract">Extract</button>
       <button id="btn-generate" disabled>Generate timeline</button>
+      <button id="btn-summary" disabled title="Generate doctor-facing narrative">Summary</button>
       <span id="tl-status"></span>
       <span id="tl-count"></span>
     </div>
@@ -743,6 +991,56 @@
 
 <div id="toast"></div>
 
+<!-- Phase 8: New session / patient modal -->
+<div id="np-modal" class="modal hidden">
+  <div class="modal-backdrop" id="np-backdrop"></div>
+  <div class="modal-box">
+    <div class="modal-header">
+      <span style="font-size:.9rem;font-weight:700;color:var(--text);flex:1">New Session</span>
+      <button id="np-close">×</button>
+    </div>
+    <div class="modal-body">
+      <form id="np-form" autocomplete="off">
+        <div class="np-field">
+          <label for="np-name">Patient name <span class="np-required">*</span></label>
+          <input type="text" id="np-name" placeholder="e.g. Priya Sharma" required />
+        </div>
+        <div class="np-field">
+          <label for="np-age">Age</label>
+          <input type="number" id="np-age" min="0" max="150" placeholder="e.g. 58" />
+        </div>
+        <div class="np-field">
+          <label for="np-sex">Sex</label>
+          <select id="np-sex">
+            <option value="">— select —</option>
+            <option value="M">Male</option>
+            <option value="F">Female</option>
+            <option value="Other">Other / prefer not to say</option>
+          </select>
+        </div>
+        <div class="np-actions">
+          <button type="button" class="np-btn-cancel" id="np-cancel">Cancel</button>
+          <button type="submit" class="np-btn-submit" id="np-submit">Start Session</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Phase 8: Patients list modal -->
+<div id="pts-modal" class="modal hidden">
+  <div class="modal-backdrop" id="pts-backdrop"></div>
+  <div class="modal-box">
+    <div class="modal-header">
+      <span style="font-size:.9rem;font-weight:700;color:var(--text);flex:1">Patients</span>
+      <button id="pts-close">×</button>
+    </div>
+    <div class="modal-body" id="pts-body">
+      <div class="pts-empty">Loading…</div>
+    </div>
+  </div>
+</div>
+
 <!-- Audit modal -->
 <div id="audit-modal" class="modal hidden">
   <div class="modal-backdrop" id="audit-backdrop"></div>
@@ -752,6 +1050,30 @@
       <button id="audit-close">×</button>
     </div>
     <div class="modal-body" id="audit-body"></div>
+  </div>
+</div>
+
+<!-- Summary modal -->
+<div id="summary-modal" class="modal hidden">
+  <div class="modal-backdrop" id="summary-backdrop"></div>
+  <div class="modal-box">
+    <div class="modal-header">
+      <span style="font-size:.9rem;font-weight:700;color:var(--text);flex:1">Clinical Summary</span>
+      <button id="summary-close">×</button>
+    </div>
+    <div class="modal-body" id="summary-body"></div>
+  </div>
+</div>
+
+<!-- Provenance modal -->
+<div id="prov-modal" class="modal hidden">
+  <div class="modal-backdrop" id="prov-backdrop"></div>
+  <div class="modal-box">
+    <div class="modal-header">
+      <span id="prov-title" style="font-size:.88rem;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1"></span>
+      <button id="prov-close">×</button>
+    </div>
+    <div class="modal-body" id="prov-body"></div>
   </div>
 </div>
 
@@ -969,14 +1291,31 @@ btnMic.addEventListener('click', () => {
 });
 
 // ── API calls ──────────────────────────────────────────────
-async function createSession() {
+async function createSession(patientData = {}) {
   const res = await fetch('/api/sessions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({}),
+    body: JSON.stringify(patientData),
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
+}
+
+// ── Phase 8: patient identity header helper ──────────────
+function _patientTag(session) {
+  if (!session.patient_name) return 'Unknown patient';
+  let tag = session.patient_name;
+  // Combine age + sex as "58F", "45M", "58", "F", etc.
+  const ageSex = (session.patient_age != null ? String(session.patient_age) : '')
+               + (session.patient_sex || '');
+  if (ageSex) tag += ' · ' + ageSex;
+  return tag;
+}
+
+function setSessionHeader(session) {
+  const hash = session.id.slice(0, 8) + '…';
+  sessionLabel.textContent = _patientTag(session) + ' · Session ' + hash;
+  sessionLabel.title = session.id;
 }
 
 async function sendTurn(message) {
@@ -1075,16 +1414,126 @@ function setSessionParam(id) {
 }
 
 // ── New session button ─────────────────────────────────────
-btnNew.addEventListener('click', async () => {
-  if (!confirm('Start a new session? The current session stays in the database.')) return;
-  btnNew.disabled = true;
+// ── Phase 8: New-session modal ─────────────────────────────
+const npModal   = document.getElementById('np-modal');
+const npBackdrop = document.getElementById('np-backdrop');
+const npClose   = document.getElementById('np-close');
+const npCancel  = document.getElementById('np-cancel');
+const npForm    = document.getElementById('np-form');
+const npName    = document.getElementById('np-name');
+const npAge     = document.getElementById('np-age');
+const npSex     = document.getElementById('np-sex');
+const npSubmit  = document.getElementById('np-submit');
+
+function openNewSessionModal() {
+  npForm.reset();
+  npModal.classList.remove('hidden');
+  // Small delay so modal is visible before focusing
+  setTimeout(() => npName.focus(), 50);
+}
+function closeNewSessionModal() { npModal.classList.add('hidden'); }
+
+btnNew.addEventListener('click', openNewSessionModal);
+npClose.addEventListener('click', closeNewSessionModal);
+npCancel.addEventListener('click', closeNewSessionModal);
+npBackdrop.addEventListener('click', closeNewSessionModal);
+
+npForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const name = npName.value.trim();
+  if (!name) { npName.focus(); return; }
+  const age  = npAge.value  ? parseInt(npAge.value, 10)  : null;
+  const sex  = npSex.value  || null;
+
+  npSubmit.disabled = true;
+  npSubmit.textContent = 'Starting…';
   try {
-    const session = await createSession();
-    // Navigate to the new session URL — page reload gives a clean state
+    const session = await createSession({ name, age, sex });
     location.href = '?session=' + session.id;
   } catch (err) {
     showToast(err.message, true);
-    btnNew.disabled = false;
+    npSubmit.disabled = false;
+    npSubmit.textContent = 'Start Session';
+  }
+});
+
+// ── Phase 8: Patients list modal ───────────────────────────
+const btnPatients = document.getElementById('btn-patients');
+const ptsModal    = document.getElementById('pts-modal');
+const ptsBackdrop = document.getElementById('pts-backdrop');
+const ptsClose    = document.getElementById('pts-close');
+const ptsBody     = document.getElementById('pts-body');
+
+function closePatientsModal() { ptsModal.classList.add('hidden'); }
+ptsClose.addEventListener('click', closePatientsModal);
+ptsBackdrop.addEventListener('click', closePatientsModal);
+
+function renderPatientsList(patients) {
+  ptsBody.innerHTML = '';
+  if (!patients.length) {
+    const empty = document.createElement('p');
+    empty.className = 'pts-empty';
+    empty.textContent = 'No patients yet — click "New Session" to add the first one.';
+    ptsBody.appendChild(empty);
+    return;
+  }
+  for (const p of patients) {
+    const row = document.createElement('div');
+    row.className = 'pt-row';
+
+    const info = document.createElement('div');
+    info.className = 'pt-info';
+
+    const nameEl = document.createElement('span');
+    nameEl.className = 'pt-name';
+    nameEl.textContent = p.name;
+
+    const metaEl = document.createElement('span');
+    metaEl.className = 'pt-meta';
+    const ageSex = (p.age != null ? String(p.age) : '') + (p.sex || '');
+    metaEl.textContent = ageSex || '—';
+
+    info.appendChild(nameEl);
+    info.appendChild(metaEl);
+    row.appendChild(info);
+
+    if (p.latest_session_id) {
+      row.classList.add('pt-row-clickable');
+      row.setAttribute('tabindex', '0');
+      row.setAttribute('title', 'Resume latest session');
+      const hint = document.createElement('span');
+      hint.className = 'pt-resume-hint';
+      hint.textContent = 'Resume →';
+      row.appendChild(hint);
+
+      const onResume = () => {
+        closePatientsModal();
+        location.href = '?session=' + p.latest_session_id;
+      };
+      row.addEventListener('click', onResume);
+      row.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onResume(); }
+      });
+    } else {
+      const ns = document.createElement('span');
+      ns.className = 'pt-no-session';
+      ns.textContent = 'No sessions';
+      row.appendChild(ns);
+    }
+    ptsBody.appendChild(row);
+  }
+}
+
+btnPatients.addEventListener('click', async () => {
+  ptsBody.innerHTML = '<div class="pts-empty">Loading…</div>';
+  ptsModal.classList.remove('hidden');
+  try {
+    const r = await fetch('/api/patients');
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const patients = await r.json();
+    renderPatientsList(patients);
+  } catch (err) {
+    ptsBody.innerHTML = `<p class="pts-empty" style="color:var(--red)">Failed to load patients: ${err.message}</p>`;
   }
 });
 
@@ -1095,8 +1544,7 @@ async function rehydrate(id) {
   const session = await res.json();
 
   sessionId = session.id;
-  sessionLabel.textContent = `Session: ${session.id.slice(0, 8)}…`;
-  sessionLabel.title = session.id;
+  setSessionHeader(session);
 
   // Restore coverage pills
   const coverage = session.interview_state?.coverage_map;
@@ -1155,8 +1603,7 @@ async function startFreshSession() {
   try {
     const session = await createSession();
     sessionId = session.id;
-    sessionLabel.textContent = `Session: ${session.id.slice(0, 8)}…`;
-    sessionLabel.title = session.id;
+    setSessionHeader(session);
     setSessionParam(session.id);
     refreshDocList();
     loadEvents();
@@ -1481,6 +1928,13 @@ function renderEvents(events) {
     for (const ev of groups.get(yr)) {
       const card = document.createElement('div');
       card.className = 'event-card';
+      card.setAttribute('tabindex', '0');
+      card.setAttribute('role', 'button');
+      card.setAttribute('aria-label', `Show provenance for ${ev.description}`);
+      card.addEventListener('click', () => openProvenance(ev.id, ev.description));
+      card.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openProvenance(ev.id, ev.description); }
+      });
 
       const top = document.createElement('div');
       top.className = 'event-card-top';
@@ -1656,18 +2110,45 @@ function startTlPoll() {
 // ── Render fused timeline ────────────────────────────────────
 function renderFusedTimeline(data) {
   _tlData = data;
+  if (btnSummary) btnSummary.disabled = false;
   const conflictedIds = new Set(
     data.conflicts.flatMap(c => [c.event_a_id, c.event_b_id])
   );
 
-  // Conflicts section
+  // Conflicts section — collapsible, default collapsed
   conflictsSec.innerHTML = '';
   if (data.conflicts.length) {
-    const hdr = document.createElement('div');
-    hdr.className = 'cf-section-hdr';
-    hdr.textContent = `⚠ ${data.conflicts.length} conflict${data.conflicts.length > 1 ? 's' : ''}`;
+    const n = data.conflicts.length;
+    const CF_KEY = 'meditrace-cf-expanded';
+    const startExpanded = localStorage.getItem(CF_KEY) === '1';
+
+    // Toggle header — <button> so Enter/Space work natively
+    const hdr = document.createElement('button');
+    hdr.className = 'cf-toggle-hdr';
+    hdr.setAttribute('aria-expanded', startExpanded ? 'true' : 'false');
+
+    const lbl = document.createElement('span');
+    lbl.textContent = `⚠ ${n} Conflict${n > 1 ? 's' : ''}`;
+    const chev = document.createElement('span');
+    chev.className = 'cf-chevron';
+    chev.setAttribute('aria-hidden', 'true');
+    chev.textContent = '▾';
+    hdr.appendChild(lbl);
+    hdr.appendChild(chev);
+
+    // Collapsible body with the actual cards
+    const body = document.createElement('div');
+    body.className = 'cf-cards-body' + (startExpanded ? ' open' : '');
+    data.conflicts.forEach(c => body.appendChild(makeConflictCard(c, data.events)));
+
+    hdr.addEventListener('click', () => {
+      const nowExpanded = body.classList.toggle('open');
+      hdr.setAttribute('aria-expanded', nowExpanded ? 'true' : 'false');
+      localStorage.setItem(CF_KEY, nowExpanded ? '1' : '0');
+    });
+
     conflictsSec.appendChild(hdr);
-    data.conflicts.forEach(c => conflictsSec.appendChild(makeConflictCard(c, data.events)));
+    conflictsSec.appendChild(body);
   }
 
   // Fused events by year
@@ -1719,9 +2200,16 @@ function makeCanonicalCard(ev, hasConflict) {
      ev.date_start              ? ' tl-dot-mid' : ' tl-dot-dim');
   wrap.appendChild(dot);
 
-  // Card
+  // Card — clickable for provenance
   const card = document.createElement('div');
   card.className = 'tl-ev-card' + (hasConflict ? ' tl-ev-flagged' : '');
+  card.setAttribute('tabindex', '0');
+  card.setAttribute('role', 'button');
+  card.setAttribute('aria-label', `Show provenance for ${ev.description}`);
+  card.addEventListener('click', () => openProvenance(ev.id, ev.description));
+  card.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openProvenance(ev.id, ev.description); }
+  });
 
   // Date line — monospace, amber when vague
   const { label, vague } = formatEventDate(ev);
@@ -1903,6 +2391,282 @@ btnGenerate.addEventListener('click', runGenerate);
 
 // Enable generate button once we have a session
 function _enableGenerate() { if (sessionId) btnGenerate.disabled = false; }
+
+// ── Phase 7C: Clinical summary ────────────────────────────
+const btnSummary     = document.getElementById('btn-summary');
+const summaryModal   = document.getElementById('summary-modal');
+const summaryBackdrop = document.getElementById('summary-backdrop');
+const summaryClose   = document.getElementById('summary-close');
+const summaryBody    = document.getElementById('summary-body');
+
+function closeSummary() { summaryModal.classList.add('hidden'); }
+summaryClose.addEventListener('click', closeSummary);
+summaryBackdrop.addEventListener('click', closeSummary);
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    if (!summaryModal.classList.contains('hidden')) closeSummary();
+    if (!npModal.classList.contains('hidden')) closeNewSessionModal();
+    if (!ptsModal.classList.contains('hidden')) closePatientsModal();
+  }
+});
+
+function renderSummary(data) {
+  summaryBody.innerHTML = '';
+
+  // Conflicts callout — top, most urgent for the clinician
+  if (data.conflicts_note) {
+    const box = document.createElement('div');
+    box.className = 'summ-callout summ-callout-conflict';
+    const hdr = document.createElement('strong');
+    hdr.className = 'summ-callout-hdr';
+    hdr.textContent = '⚠ Detected Conflicts';
+    box.appendChild(hdr);
+    const txt = document.createTextNode(data.conflicts_note);
+    box.appendChild(txt);
+    summaryBody.appendChild(box);
+  }
+
+  // Sections
+  for (const section of (data.sections || [])) {
+    const secEl = document.createElement('div');
+    secEl.className = 'summ-section';
+
+    const hdrEl = document.createElement('div');
+    hdrEl.className = 'summ-section-hdr';
+    hdrEl.textContent = section.heading;
+    secEl.appendChild(hdrEl);
+
+    for (const entry of (section.entries || [])) {
+      const entryEl = document.createElement('div');
+      entryEl.className = 'summ-entry';
+
+      const textEl = document.createElement('p');
+      textEl.className = 'summ-entry-text';
+      textEl.textContent = entry.text;
+      entryEl.appendChild(textEl);
+
+      // Gather all provenance members for cited event_ids
+      const citRow = document.createElement('div');
+      citRow.className = 'summ-cit-row';
+      const seenSnippets = new Set();
+      const seenKinds = new Set();
+
+      for (const eid of (entry.event_ids || [])) {
+        const members = data.citations[eid];
+        if (!members) continue;
+        for (const m of members) {
+          // Kind chip — deduplicate per kind per entry
+          const kindKey = m.source_kind || 'interview';
+          if (!seenKinds.has(kindKey)) {
+            seenKinds.add(kindKey);
+            citRow.appendChild(makeKindChip(m.source_kind));
+          }
+          if (m.source_snippet) seenSnippets.add(m.source_snippet);
+        }
+      }
+      if (citRow.children.length) entryEl.appendChild(citRow);
+
+      // Verbatim snippets
+      for (const snippet of seenSnippets) {
+        const snipEl = document.createElement('p');
+        snipEl.className = 'summ-snippet';
+        snipEl.textContent = '“' + snippet + '”';
+        entryEl.appendChild(snipEl);
+      }
+
+      secEl.appendChild(entryEl);
+    }
+    summaryBody.appendChild(secEl);
+  }
+
+  // Data quality callout — bottom
+  if (data.data_quality_note) {
+    const box = document.createElement('div');
+    box.className = 'summ-callout summ-callout-quality';
+    const hdr = document.createElement('strong');
+    hdr.className = 'summ-callout-hdr';
+    hdr.textContent = 'Data Quality Notes';
+    box.appendChild(hdr);
+    box.appendChild(document.createTextNode(data.data_quality_note));
+    summaryBody.appendChild(box);
+  }
+
+  // Generated-at footer
+  const footer = document.createElement('p');
+  footer.className = 'summ-footer';
+  footer.textContent = 'Generated ' + new Date(data.generated_at).toLocaleString();
+  summaryBody.appendChild(footer);
+}
+
+async function openSummary() {
+  summaryBody.innerHTML = '<div class="summ-loading">Generating clinical summary…</div>';
+  summaryModal.classList.remove('hidden');
+  btnSummary.disabled = true;
+  try {
+    const r = await fetch(`/api/sessions/${sessionId}/summary`);
+    if (!r.ok) {
+      const errBody = await r.json().catch(() => ({}));
+      const detail = errBody.detail ?? `HTTP ${r.status}`;
+      // 503 = provider busy (backend already retried); show friendly message
+      const isBusy = r.status === 503;
+      const msg = isBusy
+        ? 'The summary service is busy right now. Please try again in a moment.'
+        : `Could not generate summary: ${detail}`;
+      const errEl = document.createElement('div');
+      errEl.className = 'summ-error';
+      errEl.textContent = msg;
+      const retryBtn = document.createElement('button');
+      retryBtn.className = 'summ-retry-btn';
+      retryBtn.textContent = 'Try again';
+      retryBtn.addEventListener('click', () => openSummary());
+      errEl.appendChild(retryBtn);
+      summaryBody.innerHTML = '';
+      summaryBody.appendChild(errEl);
+      return;  // don't fall through to finally re-enable — retry btn handles it
+    }
+    const data = await r.json();
+    renderSummary(data);
+  } catch (err) {
+    // Network-level failure (fetch itself threw)
+    const errEl = document.createElement('div');
+    errEl.className = 'summ-error';
+    errEl.textContent = 'Could not reach the server. Check your connection and try again.';
+    const retryBtn = document.createElement('button');
+    retryBtn.className = 'summ-retry-btn';
+    retryBtn.textContent = 'Try again';
+    retryBtn.addEventListener('click', () => openSummary());
+    errEl.appendChild(retryBtn);
+    summaryBody.innerHTML = '';
+    summaryBody.appendChild(errEl);
+    return;
+  } finally {
+    // Re-enable the toolbar button (retry btn in error state handles re-fire)
+    btnSummary.disabled = false;
+  }
+}
+
+btnSummary.addEventListener('click', openSummary);
+
+// ── Phase 7B: Provenance panel ────────────────────────────
+const provModal    = document.getElementById('prov-modal');
+const provBackdrop = document.getElementById('prov-backdrop');
+const provClose    = document.getElementById('prov-close');
+const provTitle    = document.getElementById('prov-title');
+const provBody     = document.getElementById('prov-body');
+
+function closeProvenance() { provModal.classList.add('hidden'); }
+provClose.addEventListener('click', closeProvenance);
+provBackdrop.addEventListener('click', closeProvenance);
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && !provModal.classList.contains('hidden')) closeProvenance();
+});
+
+// Human-readable label for source kind values
+const KIND_LABELS = {
+  image_handwritten: 'Handwritten Rx',
+  pdf_typed:         'Typed Doc',
+};
+
+function makeKindChip(sourceKind) {
+  const chip = document.createElement('span');
+  chip.className = 'prov-kind-chip';
+  if (!sourceKind) {
+    chip.classList.add('prov-kind-interview');
+    chip.textContent = '💬 Interview';
+  } else {
+    chip.classList.add('prov-kind-doc');
+    chip.textContent = '📄 ' + (KIND_LABELS[sourceKind] ?? sourceKind);
+  }
+  return chip;
+}
+
+function renderProvenanceBody(members) {
+  provBody.innerHTML = '';
+
+  const subtitle = document.createElement('p');
+  subtitle.className = 'prov-subtitle';
+  subtitle.textContent = members.length === 1
+    ? '1 source contributor'
+    : `${members.length} source contributors`;
+  provBody.appendChild(subtitle);
+
+  for (const m of members) {
+    const card = document.createElement('div');
+    card.className = 'prov-member' + (m.is_canonical ? ' prov-canonical' : '');
+
+    // Header: kind chip + Primary / Patient denial tags
+    const hdr = document.createElement('div');
+    hdr.className = 'prov-member-header';
+    hdr.appendChild(makeKindChip(m.source_kind));
+
+    if (m.is_canonical) {
+      const tag = document.createElement('span');
+      tag.className = 'prov-tag prov-tag-primary';
+      tag.textContent = 'Primary';
+      hdr.appendChild(tag);
+    }
+    if (m.is_negation) {
+      const tag = document.createElement('span');
+      tag.className = 'prov-tag prov-tag-denial';
+      tag.textContent = 'Patient denial';
+      hdr.appendChild(tag);
+    }
+    card.appendChild(hdr);
+
+    // Event description
+    const desc = document.createElement('p');
+    desc.className = 'prov-member-desc';
+    desc.textContent = m.description;
+    card.appendChild(desc);
+
+    // Source label (filename) — only for document sources
+    if (m.source_label) {
+      const lbl = document.createElement('p');
+      lbl.className = 'prov-member-label';
+      lbl.textContent = m.source_label;
+      card.appendChild(lbl);
+    }
+
+    // Verbatim snippet or muted placeholder
+    if (m.source_snippet) {
+      const snip = document.createElement('p');
+      snip.className = 'prov-snippet';
+      // Wrap in typographic quotation marks
+      snip.textContent = '“' + m.source_snippet + '”';
+      card.appendChild(snip);
+    } else {
+      const snip = document.createElement('p');
+      snip.className = 'prov-snippet-null';
+      snip.textContent = 'no snippet captured';
+      card.appendChild(snip);
+    }
+
+    provBody.appendChild(card);
+  }
+}
+
+async function openProvenance(eventId, description) {
+  // Truncate long descriptions for the modal title
+  provTitle.textContent = description.length > 60
+    ? description.slice(0, 60) + '…'
+    : description;
+  provTitle.title = description;
+
+  provBody.innerHTML = '<div class="placeholder" style="min-height:5rem">Loading…</div>';
+  provModal.classList.remove('hidden');
+
+  try {
+    const r = await fetch(`/api/sessions/${sessionId}/events/${eventId}/provenance`);
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      throw new Error(err.detail ?? `HTTP ${r.status}`);
+    }
+    const members = await r.json();
+    renderProvenanceBody(members);
+  } catch (err) {
+    provBody.innerHTML = `<div class="prov-error">Could not load provenance: ${err.message}</div>`;
+  }
+}
 
 // ── Theme toggle ───────────────────────────────────────────
 const btnTheme = document.getElementById('btn-theme');

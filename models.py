@@ -4,7 +4,7 @@ from enum import Enum as PyEnum
 
 from sqlalchemy import (
     Boolean, Date, DateTime, Enum, Float, ForeignKey,
-    Index, JSON, String, Text,
+    Index, Integer, JSON, String, Text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -27,11 +27,24 @@ class SessionStatus(str, PyEnum):
     failed = "failed"
 
 
+class Patient(Base):
+    __tablename__ = "patients"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    age: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    sex: Mapped[str | None] = mapped_column(String, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+    sessions: Mapped[list["Session"]] = relationship("Session", back_populates="patient")
+
+
 class Session(Base):
     __tablename__ = "sessions"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
     patient_label: Mapped[str | None] = mapped_column(String, nullable=True)
+    patient_id: Mapped[str | None] = mapped_column(String, ForeignKey("patients.id"), nullable=True)
     status: Mapped[str] = mapped_column(
         Enum(SessionStatus), default=SessionStatus.active, nullable=False
     )
@@ -42,6 +55,7 @@ class Session(Base):
         DateTime(timezone=True), default=_now, onupdate=_now
     )
 
+    patient: Mapped["Patient | None"] = relationship("Patient", back_populates="sessions")
     sources: Mapped[list["RawSource"]] = relationship("RawSource", back_populates="session")
     events: Mapped[list["Event"]] = relationship("Event", back_populates="session")
     conflicts: Mapped[list["Conflict"]] = relationship("Conflict", back_populates="session")
