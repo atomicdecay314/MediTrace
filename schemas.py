@@ -229,6 +229,11 @@ class DocumentDetailOut(BaseModel):
     extraction_meta: dict = Field(default_factory=dict)
 
 
+class ExtractionRetryIn(BaseModel):
+    """Body for POST /interview/retry-extraction — re-runs per-turn extraction."""
+    message: str
+
+
 class InterviewTurnIn(BaseModel):
     message: str
 

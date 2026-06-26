@@ -288,6 +288,27 @@
       color: var(--text-subtle); font-style: italic;
     }
 
+    /* ── Extraction failure badge (Phase 8 / per-turn extraction) ── */
+    /* Visually distinct from "assistant had trouble" (which uses .msg-system).
+       Amber = "data may be missing" — more urgent than a reply glitch. */
+    .msg-extraction-warn {
+      align-self: flex-end;          /* lines up under the user bubble */
+      display: flex; align-items: center; gap: .4rem; flex-wrap: wrap;
+      padding: .28rem .6rem; border-radius: 6px; margin-top: -.2rem;
+      font-size: .73rem; line-height: 1.4;
+      background: var(--amber-dim); border: 1px solid var(--amber-border);
+      color: var(--amber); max-width: 80%;
+    }
+    .msg-extraction-warn-text { flex: 1; min-width: 0; }
+    .msg-retry-extract-btn {
+      background: none; border: 1px solid var(--amber-border); border-radius: 4px;
+      padding: .14rem .42rem; font-size: .68rem; color: var(--amber);
+      cursor: pointer; white-space: nowrap; font-family: inherit;
+      transition: background .15s;
+    }
+    .msg-retry-extract-btn:hover  { background: var(--amber-border); }
+    .msg-retry-extract-btn:disabled { opacity: .5; cursor: not-allowed; }
+
     /* ── Typing indicator ── */
     .typing-dots {
       display: flex; gap: .3rem; align-items: center; padding: .65rem .9rem;
@@ -1147,6 +1168,7 @@ function appendMessage(role, text) {
   div.textContent = text;
   chatMessages.appendChild(div);
   chatMessages.scrollTop = chatMessages.scrollHeight;
+  return div;   // caller may attach extraction badges
 }
 
 function appendSystem(text) {
@@ -1262,9 +1284,13 @@ async function sendVoiceTurn(blob, mimeType) {
     }
 
     const data = await res.json();
-    appendMessage('user', data.transcript);
+    const voiceUserEl = appendMessage('user', data.transcript);
     appendMessage('assistant', data.reply);
     renderCoverage(data.coverage);
+
+    if (data.extraction_ok === false) {
+      showExtractionFailureBadge(voiceUserEl, data.transcript);
+    }
 
     if (data.interview_complete) {
       await callComplete().catch(() => {});
@@ -1346,8 +1372,9 @@ async function doTurn(userMessage) {
 
   setInputEnabled(false);
 
+  let userMsgEl = null;
   if (userMessage) {
-    appendMessage('user', userMessage);
+    userMsgEl = appendMessage('user', userMessage);
   }
 
   showTyping();
@@ -1356,6 +1383,12 @@ async function doTurn(userMessage) {
     const data = await sendTurn(userMessage);
     appendMessage('assistant', data.reply);
     renderCoverage(data.coverage);
+
+    // If extraction failed, show an inline warning under the user's message
+    // (distinct from "assistant had trouble" — this one means DATA may be lost)
+    if (userMsgEl && data.extraction_ok === false) {
+      showExtractionFailureBadge(userMsgEl, userMessage);
+    }
 
     if (data.interview_complete) {
       await callComplete().catch(() => {});
@@ -1414,6 +1447,55 @@ function setSessionParam(id) {
 }
 
 // ── New session button ─────────────────────────────────────
+// ── Phase 8: Per-turn extraction failure UI ────────────────
+// Amber badge shown under a user message when per-turn event capture fails.
+// Visually different from "assistant had trouble" (italic grey system msg).
+
+function showExtractionFailureBadge(userMsgEl, messageText) {
+  const badge = document.createElement('div');
+  badge.className = 'msg-extraction-warn';
+
+  const txt = document.createElement('span');
+  txt.className = 'msg-extraction-warn-text';
+  txt.textContent = '⚠ Couldn\'t capture this answer — events may be missing.';
+  badge.appendChild(txt);
+
+  const btn = document.createElement('button');
+  btn.className = 'msg-retry-extract-btn';
+  btn.textContent = 'Retry capture';
+  btn.addEventListener('click', () => retryExtractionFor(messageText, badge, btn));
+  badge.appendChild(btn);
+
+  // Insert directly after the user message bubble
+  userMsgEl.after(badge);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+async function retryExtractionFor(messageText, badgeEl, btn) {
+  btn.disabled = true;
+  btn.textContent = 'Retrying…';
+  try {
+    const r = await fetch(`/api/sessions/${sessionId}/interview/retry-extraction`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: messageText }),
+    });
+    const data = await r.json();
+    if (data.ok) {
+      badgeEl.remove();
+      showToast(`${data.count} event${data.count !== 1 ? 's' : ''} captured`);
+    } else {
+      btn.disabled = false;
+      btn.textContent = 'Retry capture';
+      showToast('Still unavailable — try again in a moment.', true);
+    }
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = 'Retry capture';
+    showToast('Retry failed — check connection.', true);
+  }
+}
+
 // ── Phase 8: New-session modal ─────────────────────────────
 const npModal   = document.getElementById('np-modal');
 const npBackdrop = document.getElementById('np-backdrop');

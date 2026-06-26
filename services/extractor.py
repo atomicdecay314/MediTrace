@@ -7,9 +7,13 @@ Does NOT persist to DB — the router handles that.
 from __future__ import annotations
 
 import logging
+import random
 import re
+import time
 from pathlib import Path
 from typing import Any
+
+from google.genai.errors import ClientError, ServerError
 
 from services import dates as dates_mod
 from services.gemini_client import GeminiParseError, gemini_client
@@ -35,6 +39,76 @@ _DENIAL_DESC_RE = re.compile(
     r"^no\s+h/o\b|^no\s+known\b",
     re.I,
 )
+
+
+# ── Per-turn extraction retry helpers ────────────────────────────────────────
+# Same 503/429/500 retry pattern as the summary service (7C).
+
+_EXT_MAX_RETRIES = 3
+_EXT_BASE_DELAY  = 1.0   # seconds; doubles each attempt
+_EXT_JITTER      = 0.5   # max random seconds added per delay
+
+
+class ExtractionTransientError(Exception):
+    """Raised when per-turn event extraction fails after retries (provider overload)."""
+
+
+def _ext_is_transient(exc: Exception) -> bool:
+    if isinstance(exc, ServerError) and exc.code in (500, 503):
+        return True
+    if isinstance(exc, ClientError) and exc.code == 429:
+        return True
+    return False
+
+
+def _ext_retry_after(exc: Exception) -> float | None:
+    try:
+        resp = getattr(exc, "response", None)
+        if resp is not None:
+            raw = resp.headers.get("retry-after") or resp.headers.get("Retry-After")
+            if raw:
+                return float(raw)
+    except Exception:
+        pass
+    return None
+
+
+def _ext_call_with_retry(prompt: str, payload: dict) -> dict:
+    """Call gemini_client.json_completion with exponential backoff on transient errors.
+
+    GeminiParseError (bad JSON) is never retried — retrying won't help.
+    Non-transient ClientErrors (400/401/403) are not retried either.
+    Raises ExtractionTransientError after _EXT_MAX_RETRIES exhausted.
+    """
+    last_exc: Exception | None = None
+    for attempt in range(_EXT_MAX_RETRIES + 1):
+        try:
+            return gemini_client.json_completion(prompt, payload)
+        except GeminiParseError:
+            raise
+        except Exception as exc:
+            if not _ext_is_transient(exc) or attempt == _EXT_MAX_RETRIES:
+                last_exc = exc
+                break
+            delay = _ext_retry_after(exc) or (
+                _EXT_BASE_DELAY * (2 ** attempt) + random.uniform(0, _EXT_JITTER)
+            )
+            logger.warning(
+                "Interview extraction hit transient error (attempt %d/%d, code=%s) "
+                "— retrying in %.1fs",
+                attempt + 1, _EXT_MAX_RETRIES,
+                getattr(exc, "code", "?"),
+                delay,
+            )
+            time.sleep(delay)
+            last_exc = exc
+
+    if _ext_is_transient(last_exc):
+        raise ExtractionTransientError(
+            "Event extraction is temporarily unavailable — your answer was saved, "
+            "please retry capture."
+        ) from last_exc
+    raise last_exc  # type: ignore[misc]
 
 
 def _is_null_value(v: Any) -> bool:
@@ -282,6 +356,81 @@ def extract_from_interview(session) -> list[dict]:
         confidence = min(float(e.get("confidence") or 0.6), 0.6)  # cap self-reported
         dr = dates_mod.normalize(date_raw) if date_raw else dates_mod.unknown()
         events.append(_base(None, session.id, event_type,
+                            description, date_raw, dr, structured, confidence,
+                            source_snippet=source_snippet))
+
+    return events
+
+
+# ── Per-turn extraction (Phase 8) ────────────────────────────────────────────
+
+def extract_single_turn(message: str, session_id: str) -> list[dict]:
+    """Extract Event dicts from a single patient message, with retry on transient errors.
+
+    Unlike extract_from_interview (which silently returns [] on failure so the
+    batch Extract button never appears to error), this function RAISES
+    ExtractionTransientError if the LLM is unavailable after retries. The caller
+    decides how to surface that to the user.
+
+    Returns [] legitimately when the message contains no medical events.
+    """
+    if not message or not message.strip():
+        return []
+
+    payload = {"transcript": [{"role": "Patient", "text": message.strip()}]}
+    logger.info("extract_single_turn: extracting events from 1-turn message for session %s", session_id)
+
+    try:
+        result = _ext_call_with_retry(_extract_prompt, payload)
+    except ExtractionTransientError:
+        raise  # let the router show the "capture failed" badge
+    except GeminiParseError as exc:
+        logger.error("extract_single_turn parse error: %s", exc)
+        return []  # model returned bad JSON — not a transient error; treat as 0 events
+
+    raw_events = result.get("events") or []
+    logger.info("extract_single_turn: LLM returned %d events for session %s", len(raw_events), session_id)
+
+    # ── Event processing — identical logic to extract_from_interview ──────────
+    events: list[dict] = []
+    for e in raw_events:
+        event_type = e.get("event_type", "Symptom")
+        if event_type not in _VALID_EVENT_TYPES:
+            event_type = "Symptom"
+        description = (e.get("description") or "").strip()
+        if not description:
+            continue
+        date_raw = (e.get("date_raw") or "").strip()
+        is_negation = bool(e.get("is_negation", False))
+        source_snippet = (e.get("source_turn") or "").strip() or None
+        structured = dict(e.get("structured") or {})
+
+        if not is_negation and _DENIAL_DESC_RE.match(description):
+            is_negation = True
+            logger.warning("extract_single_turn: forced is_negation=True: %r", description)
+
+        if is_negation:
+            negated_claim = structured.get("negated_claim") or ""
+            if not negated_claim:
+                negated_claim = re.sub(
+                    r"^patient\s+denies\s+|^denies\s+|^no\s+history\s+of\s+|"
+                    r"^never\s+had\s+|^no\s+h/o\s+|^no\s+known\s+",
+                    "",
+                    description,
+                    flags=re.I,
+                ).strip() or description
+            structured["negated_claim"] = negated_claim
+            description = f"Patient denies {negated_claim}"
+
+        structured["is_negation"] = is_negation
+
+        if event_type == "Medication" and "normalized_guess" not in structured:
+            drug_name = structured.get("drug_name") or description
+            structured["normalized_guess"] = drug_name.strip().lower()
+
+        confidence = min(float(e.get("confidence") or 0.6), 0.6)
+        dr = dates_mod.normalize(date_raw) if date_raw else dates_mod.unknown()
+        events.append(_base(None, session_id, event_type,
                             description, date_raw, dr, structured, confidence,
                             source_snippet=source_snippet))
 
